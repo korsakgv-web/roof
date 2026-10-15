@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Кровля">
-  <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#1086;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
+  <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#108e;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -31,27 +31,55 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       overflow: hidden; display: flex; flex-direction: column;
     }
-    .topbar {
-      background: var(--panel-bg);
-      padding: 8px 10px;
-      display: flex; flex-wrap: wrap; gap: 6px;
-      align-items: center; justify-content: space-between;
-      border-bottom: 1px solid #3f3f46;
-      z-index: 1000;
+
+    /* Верхняя мини-панель для редких настроек */
+    .topbar-mini {
+      background: #18181b;
+      padding: 5px 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #27272a;
+      font-size: 12px; z-index: 1000;
     }
-    .topbar-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    select, button {
-      background: #3f3f46; color: #fff; border: 1px solid #52525b;
-      padding: 7px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    .topbar-mini button {
+      background: #27272a; color: var(--text-muted); border: 1px solid #3f3f46;
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
       cursor: pointer;
     }
-    button:active { transform: scale(0.97); }
-    .btn-primary { background: var(--accent); border-color: #2563eb; }
+
+    /* Основная нижняя рабочая панель управления под пальцем */
+    .bottombar {
+      background: var(--panel-bg);
+      padding: 10px 12px;
+      display: flex; gap: 8px;
+      align-items: center; justify-content: space-between;
+      border-top: 1px solid #3f3f46;
+      z-index: 1000;
+    }
+    .station-select-wrapper {
+      position: relative; flex: 1.4; display: flex; align-items: center;
+    }
+    .station-select {
+      width: 100%; background: #3f3f46; color: #fff; border: 2px solid #52525b;
+      padding: 10px 12px; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; appearance: none; -webkit-appearance: none;
+      padding-left: 36px;
+    }
+    .station-color-dot {
+      position: absolute; left: 10px; width: 16px; height: 16px;
+      border-radius: 50%; border: 1.5px solid #fff; pointer-events: none;
+    }
+
+    .bottom-btn {
+      background: #3f3f46; color: #fff; border: 1px solid #52525b;
+      padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      cursor: pointer; flex: 1; text-align: center; white-space: nowrap;
+    }
+    .bottom-btn:active { transform: scale(0.97); }
     .btn-success { background: #16a34a; border-color: #15803d; }
     .btn-warn { background: #d97706; border-color: #b45309; }
 
     .status-bar {
-      background: #1f1f23; padding: 6px 12px; font-size: 12px;
+      background: #1f1f23; padding: 5px 12px; font-size: 11px;
       display: flex; justify-content: space-between; align-items: center;
       border-bottom: 1px solid #3f3f46; color: var(--text-muted);
       z-index: 999;
@@ -60,7 +88,7 @@
 
     #map { flex: 1; width: 100%; background: #e5e5e5; }
 
-    /* Центральное ядро точки, вокруг которого наращиваются концентрические кольца */
+    /* Маркеры точек на плане */
     .pt-core {
       width: 20px; height: 20px;
       border-radius: 50%;
@@ -75,11 +103,11 @@
       transition: transform 0.1s;
     }
     .pt-core-active {
-      background: #fef08a; /* Мягкая подсветка центра для точек текущей станции */
+      background: #fef08a;
       border-color: #000;
     }
 
-    /* Модальное окно ввода закреплено ВВЕРХУ экрана */
+    /* Модальное окно ввода закреплено ВВЕРХУ */
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       display: none; align-items: flex-start; justify-content: center;
@@ -141,115 +169,40 @@
     th { background: #27272a; position: sticky; top: 0; text-align: center; z-index: 10; }
     td.pt-col { text-align: center; font-weight: bold; background: #27272a; position: sticky; left: 0; }
   </style>
-  <script>
-    // Автогенерация PNG-иконки 180x180 для iOS (Золотой купол с геодезическим перекрестием)
-    (function() {
-      const c = document.createElement('canvas');
-      c.width = 180; c.height = 180;
-      const ctx = c.getContext('2d');
-
-      // 1. Темно-графитовый фон с легким градиентом
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, 180);
-      bgGrad.addColorStop(0, '#18181b');
-      bgGrad.addColorStop(1, '#27272a');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, 180, 180);
-
-      // 2. Золотистый градиент для купола
-      const goldGrad = ctx.createLinearGradient(40, 35, 140, 145);
-      goldGrad.addColorStop(0, '#fef08a');
-      goldGrad.addColorStop(0.5, '#eab308');
-      goldGrad.addColorStop(1, '#a16207');
-
-      // Шпиль и фонарик купола
-      ctx.fillStyle = goldGrad;
-      ctx.fillRect(88, 16, 4, 18);
-      ctx.beginPath();
-      ctx.arc(90, 38, 7, Math.PI, 0);
-      ctx.fill();
-      ctx.fillRect(81, 38, 18, 12);
-
-      // Главный свод купола Исаакия
-      ctx.beginPath();
-      ctx.arc(90, 108, 56, Math.PI, 0, false);
-      ctx.closePath();
-      ctx.fillStyle = goldGrad;
-      ctx.fill();
-
-      // Барабан (колоннада) под куполом
-      ctx.fillStyle = '#ca8a04';
-      ctx.fillRect(30, 110, 120, 18);
-      ctx.fillStyle = '#18181b';
-      for (let x = 38; x <= 138; x += 12) {
-        ctx.fillRect(x, 113, 5, 12);
-      }
-      // Основание
-      ctx.fillStyle = goldGrad;
-      ctx.fillRect(22, 130, 136, 8);
-
-      // 3. Геодезическое перекрестие (сетка нитей тахеометра) поверх купола
-      ctx.strokeStyle = '#38bdf8'; // Ярко-голубой контрастный прицел
-      ctx.lineWidth = 2.5;
-
-      // Внешнее кольцо прицела
-      ctx.beginPath();
-      ctx.arc(90, 88, 32, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Перекрестие нитей
-      ctx.beginPath();
-      ctx.moveTo(42, 88); ctx.lineTo(138, 88);
-      ctx.moveTo(90, 40); ctx.lineTo(90, 136);
-      ctx.stroke();
-
-      // Красная лазерная точка в центре наведения
-      ctx.beginPath();
-      ctx.arc(90, 88, 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#ef4444';
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // 4. Подпись внизу иконки
-      ctx.fillStyle = '#f4f4f5';
-      ctx.font = 'bold 17px -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('\u0418\u0421\u0410\u0410\u041A\u0418\u0419', 90, 162);
-
-      // Подключаем сгенерированную PNG-иконку для iPhone
-      const link = document.createElement('link');
-      link.rel = 'apple-touch-icon';
-      link.href = c.toDataURL('image/png');
-      document.head.appendChild(link);
-    })();
-  </script>
 </head>
 <body>
 
-  <div class="topbar">
-    <div class="topbar-group">
-      <select id="stationSelect" onchange="onStationChange()"></select>
-      <button id="modeBtn" onclick="toggleEditMode()"></button>
-    </div>
-    <div class="topbar-group">
-      <button id="btnPlan" onclick="document.getElementById('planInput').click()"></button>
+  <!-- Верхняя мини-панель (редкие настройки: план, база, сброс) -->
+  <div class="topbar-mini">
+    <div style="display:flex; gap:6px;">
+      <button onclick="document.getElementById('planInput').click()">&#128506; План</button>
       <input type="file" id="planInput" accept="application/pdf,image/*" style="display:none" onchange="handlePlanUpload(event)">
-      <button id="btnSaveProject" onclick="exportProjectBackup()"></button>
-      <button id="btnLoadProject" onclick="document.getElementById('projectInput').click()"></button>
+      <button onclick="exportProjectBackup()">&#128190; База</button>
+      <button onclick="document.getElementById('projectInput').click()">&#128194; Загр.</button>
       <input type="file" id="projectInput" accept=".json" style="display:none" onchange="importProjectBackup(event)">
-      <button id="btnSummary" onclick="openTableModal()"></button>
-      <button class="btn-success" id="btnExcel" onclick="exportToExcel()">Excel</button>
-      <button id="btnClear" onclick="clearCurrentCycle()"></button>
     </div>
+    <button onclick="clearCurrentCycle()" style="color:#ef4444;">&#128465; Сброс</button>
   </div>
 
+  <!-- Статус-бар -->
   <div class="status-bar">
     <div id="stationStats"></div>
     <div id="stationShiftInfo"></div>
   </div>
 
+  <!-- Карта -->
   <div id="map"></div>
+
+  <!-- Основная рабочая панель СНИЗУ под пальцем -->
+  <div class="bottombar">
+    <div class="station-select-wrapper">
+      <div class="station-color-dot" id="stationDot"></div>
+      <select class="station-select" id="stationSelect" onchange="onStationChange()"></select>
+    </div>
+    <button class="bottom-btn btn-warn" id="modeBtn" onclick="toggleEditMode()">Коррекция</button>
+    <button class="bottom-btn" onclick="openTableModal()">Сводка</button>
+    <button class="bottom-btn btn-success" onclick="exportToExcel()">Excel</button>
+  </div>
 
   <!-- Модальное окно ввода -->
   <div class="modal-backdrop" id="inputModal" onclick="if(event.target===this) closeInputModal()">
@@ -296,9 +249,9 @@
 
   <!-- Окно сводной таблицы -->
   <div class="table-modal" id="tableModal">
-    <div class="topbar">
-      <span id="lblTableTitle" style="font-weight:700; font-size:15px;"></span>
-      <div class="topbar-group">
+    <div class="topbar-mini" style="padding:10px;">
+      <span id="lblTableTitle" style="font-weight:700; font-size:14px;"></span>
+      <div style="display:flex; gap:6px;">
         <button class="btn-success" id="btnDownloadXlsx" onclick="exportToExcel()"></button>
         <button id="btnCloseTable" onclick="closeTableModal()"></button>
       </div>
@@ -309,27 +262,22 @@
 <script>
 const T = {
   stPrefix: "\u0421\u0442",
-  modeSurvey: "\uD83D\uDCCD \u0421\u044A\u0435\u043C\u043A\u0430",
+  modeSurvey: "\u041A\u043E\u0440\u0440\u0435\u043A\u0446\u0438\u044F",
   modeMove: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C",
-  btnPlan: "\uD83D\uDDFA \u041F\u043B\u0430\u043D",
-  btnSaveProj: "\uD83D\uDCBE \u0411\u0430\u0437\u0430",
-  btnLoadProj: "\uD83D\uDCC2 \u0411\u0430\u0437\u0430",
-  btnSummary: "\uD83D\uDCCA \u0421\u0432\u043E\u0434\u043A\u0430",
-  btnClear: "\uD83D\uDDD1",
   lblBase: "\u0411\u0430\u0437\u0430 (\u041C\u0430\u0439 26)",
   lblDiff: "\u0420\u0430\u0437\u043D. (\u0418\u0442\u043E\u0433\u2212\u0411\u0430\u0437\u0430)",
   lblDev: "\u041E\u0442\u043A\u043B. \u043F\u043E \u0441\u0442\u0430\u043D\u0446\u0438\u0438",
   lblTahometer: "\u041E\u0442\u0441\u0447\u0435\u0442 \u0442\u0430\u0445\u0435\u043E\u043C\u0435\u0442\u0440\u0430 (\u043C\u043C):",
-  lblTape: "\uD83D\uDCCF \u0420\u0443\u043B\u0435\u0442\u043A\u0430 \u0432\u043D\u0438\u0437 (+\u043C\u043C, \u0435\u0441\u043B\u0438 \u043F\u0440\u0438\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u043B\u0430\u0441\u044C):",
+  lblTape: "\uD83D\uDCCF \u0420\u0443\u043B\u0435\u0442\u043A\u0430 \u0432\u043D\u0438\u0437 (+\u043C\u043C):",
   placeholderZ: "\u041E\u0442\u0441\u0447\u0435\u0442 (\u043C\u043C)",
-  placeholderTape: "0 (\u0431\u0435\u0437 \u0440\u0443\u043B\u0435\u0442\u043A\u0438)",
+  placeholderTape: "0",
   tapeShort: "\u0440\u0443\u043B.",
   btnSave: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
   btnDel: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
   tableTitle: "\u0423\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u043D\u0438\u0435 \u0438 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435 \u0441 \u041C\u0430\u0435\u043C 2026",
-  btnDownloadXlsx: "\uD83D\uDCE5 \u0421\u043A\u0430\u0447\u0430\u0442\u044C .XLSX",
-  btnClose: "\u2715 \u0417\u0430\u043A\u0440\u044B\u0442\u044C",
-  svgHint: "\u0412\u0425\u041E\u0414 (\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041F\u043B\u0430\u043D\u00BB \u0441\u0432\u0435\u0440\u0445\u0443, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C PDF)",
+  btnDownloadXlsx: "\uD83D\uDCE5 .XLSX",
+  btnClose: "\u2715 \u0417\u0430\u043A\u0440.",
+  svgHint: "\u0412\u0425\u041E\u0414 (\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041F\u043B\u0430\u043D\u00BB \u0441\u0432\u0435\u0440\u0445\u0443)",
   stationWord: "\u0421\u0442",
   measuredWord: "\u0421\u043D\u044F\u0442\u043E",
   overlapsWord: "\u0421\u0432\u044F\u0437\u043E\u043A",
@@ -345,7 +293,7 @@ const T = {
   colDelta: "\u0421\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u0394 (\u043C\u043C)",
   shiftWord: "\u0441\u0434\u0432\u0438\u0433",
   readingWord: "\u041E\u0442\u0441\u0447\u0435\u0442",
-  confirmClear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u0432\u0441\u0435 \u0432\u0432\u0435\u0434\u0435\u043D\u043D\u044B\u0435 \u043E\u0442\u0441\u0447\u0435\u0442\u044B \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u0446\u0438\u043A\u043B\u0430?",
+  confirmClear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u0432\u0441\u0435 \u0432\u0432\u0435\u0434\u0435\u043D\u043D\u044B\u0435 \u043E\u0442\u0441\u0447\u0435\u0442\u044B?",
   loadedOk: "\u0411\u0430\u0437\u0430 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430!",
   offlineReady: "\uD83D\uDFE2 \u041E\u0444\u043B\u0430\u0439\u043D"
 };
@@ -521,11 +469,6 @@ window.onload = () => {
   }
 
   document.getElementById('modeBtn').textContent = T.modeSurvey;
-  document.getElementById('btnPlan').textContent = T.btnPlan;
-  document.getElementById('btnSaveProject').textContent = T.btnSaveProj;
-  document.getElementById('btnLoadProject').textContent = T.btnLoadProj;
-  document.getElementById('btnSummary').textContent = T.btnSummary;
-  document.getElementById('btnClear').textContent = T.btnClear;
   document.getElementById('lblBase').textContent = T.lblBase;
   document.getElementById('lblDiff').textContent = T.lblDiff;
   document.getElementById('lblDev').textContent = T.lblDev;
@@ -556,7 +499,7 @@ function initStationSelect() {
   STATIONS.forEach(st => {
     const opt = document.createElement('option');
     opt.value = st.id;
-    opt.textContent = st.name;
+    opt.textContent = `  ${st.name}`;
     sel.appendChild(opt);
   });
   sel.value = state.activeStation;
@@ -565,8 +508,10 @@ function initStationSelect() {
 
 function updateSelectColor() {
   const st = STATIONS.find(s => s.id == state.activeStation);
-  const sel = document.getElementById('stationSelect');
-  sel.style.borderLeft = `8px solid ${st.color}`;
+  const dot = document.getElementById('stationDot');
+  if (dot && st) {
+    dot.style.background = st.color;
+  }
 }
 
 function initMap() {
@@ -650,25 +595,20 @@ function getStationAvgDiff(stId, excludePtId = null) {
   return diffs.length % 2 !== 0 ? diffs[mid] : (diffs[mid - 1] + diffs[mid]) / 2;
 }
 
-// Генерация концентрических колец с черными разделительными полосами через многослойный box-shadow
 function buildConcentricRingsShadow(stationIds, hasError) {
   if (stationIds.length === 0) {
     return '0 1px 3px rgba(0,0,0,0.4)';
   }
   const shadows = [];
   let radius = 0;
-  const ringWidth = 3.5; // Толщина каждого цветного кольца станции (px)
-  const sepWidth = 1.0;  // Толщина черной разделительной линии между кольцами (px)
+  const ringWidth = 3.5;
+  const sepWidth = 1.0;
 
   stationIds.forEach((stId) => {
     const st = STATIONS.find(s => s.id == stId);
     const col = st ? st.color : '#ccc';
-    
-    // Цветное кольцо станции
     radius += ringWidth;
     shadows.push(`0 0 0 ${radius}px ${col}`);
-    
-    // Черное разделительное кольцо снаружи
     radius += sepWidth;
     shadows.push(`0 0 0 ${radius}px #111111`);
   });
@@ -753,10 +693,10 @@ function toggleEditMode() {
   const btn = document.getElementById('modeBtn');
   if (state.editMode) {
     btn.textContent = T.modeMove;
-    btn.className = 'btn-warn';
+    btn.className = 'bottom-btn btn-warn';
   } else {
     btn.textContent = T.modeSurvey;
-    btn.className = '';
+    btn.className = 'bottom-btn btn-warn';
   }
   renderMarkers();
 }
