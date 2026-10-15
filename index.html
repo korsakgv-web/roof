@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Кровля">
+  <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#1086;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #18181b;
+      --panel-bg: #27272a;
+      --text-main: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warn: #eab308;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: var(--bg-dark); color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    .topbar {
+      background: var(--panel-bg);
+      padding: 8px 10px;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #3f3f46;
+      z-index: 1000;
+    }
+    .topbar-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    select, button {
+      background: #3f3f46; color: #fff; border: 1px solid #52525b;
+      padding: 7px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer;
+    }
+    button:active { transform: scale(0.97); }
+    .btn-primary { background: var(--accent); border-color: #2563eb; }
+    .btn-success { background: #16a34a; border-color: #15803d; }
+    .btn-warn { background: #d97706; border-color: #b45309; }
+
+    .status-bar {
+      background: #1f1f23; padding: 6px 12px; font-size: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #3f3f46; color: var(--text-muted);
+      z-index: 999;
+    }
+    .status-bar b { color: #fff; }
+
+    #map { flex: 1; width: 100%; background: #e5e5e5; }
+
+    /* Центральное ядро точки, вокруг которого наращиваются концентрические кольца */
+    .pt-core {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #111111;
+      font-weight: 800;
+      font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+      user-select: none;
+      border: 1.2px solid #27272a;
+      transition: transform 0.1s;
+    }
+    .pt-core-active {
+      background: #fef08a; /* Мягкая подсветка центра для точек текущей станции */
+      border-color: #000;
+    }
+
+    /* Модальное окно ввода закреплено ВВЕРХУ экрана */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: none; align-items: flex-start; justify-content: center;
+      padding-top: 8px;
+      z-index: 2000;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-sheet {
+      background: var(--panel-bg); width: 100%; max-width: 480px;
+      border-radius: 14px; padding: 12px 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.65);
+      margin: 0 8px;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .close-btn {
+      background: transparent; border: none; color: var(--text-muted);
+      font-size: 20px; padding: 0 6px;
+    }
+    .info-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+      margin-bottom: 8px; background: #18181b; padding: 7px; border-radius: 8px;
+    }
+    .info-cell { text-align: center; }
+    .info-label { font-size: 10px; color: var(--text-muted); display: block; }
+    .info-val { font-size: 14px; font-weight: 700; margin-top: 2px; display: block; }
+
+    .history-chips {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-size: 11px; max-height: 48px; overflow-y: auto;
+    }
+    .chip { padding: 3px 6px; border-radius: 4px; color: #000; font-weight: 600; border: 1px solid #000; }
+
+    .field-lbl { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+    .input-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+    .input-row input {
+      flex: 1; background: #18181b; border: 2px solid #52525b;
+      color: #fff; font-size: 20px; font-weight: 700; padding: 7px 8px;
+      border-radius: 8px; text-align: center; outline: none; width: 100%;
+    }
+    .input-row input:focus { border-color: var(--accent); }
+    .sign-btn {
+      background: #3f3f46; color: #fff; border: 1px solid #52525b;
+      font-size: 18px; font-weight: bold; width: 42px; height: 42px;
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+    }
+
+    .table-modal {
+      position: fixed; inset: 0; background: var(--bg-dark);
+      z-index: 2500; display: none; flex-direction: column;
+    }
+    .table-modal.active { display: flex; }
+    .table-container { flex: 1; overflow: auto; padding: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: right; }
+    th, td { border: 1px solid #3f3f46; padding: 5px 6px; white-space: nowrap; }
+    th { background: #27272a; position: sticky; top: 0; text-align: center; z-index: 10; }
+    td.pt-col { text-align: center; font-weight: bold; background: #27272a; position: sticky; left: 0; }
+  </style>
+  <script>
+    // Автогенерация PNG-иконки 180x180 для iOS (Золотой купол с геодезическим перекрестием)
+    (function() {
+      const c = document.createElement('canvas');
+      c.width = 180; c.height = 180;
+      const ctx = c.getContext('2d');
+
+      // 1. Темно-графитовый фон с легким градиентом
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, 180);
+      bgGrad.addColorStop(0, '#18181b');
+      bgGrad.addColorStop(1, '#27272a');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, 180, 180);
+
+      // 2. Золотистый градиент для купола
+      const goldGrad = ctx.createLinearGradient(40, 35, 140, 145);
+      goldGrad.addColorStop(0, '#fef08a');
+      goldGrad.addColorStop(0.5, '#eab308');
+      goldGrad.addColorStop(1, '#a16207');
+
+      // Шпиль и фонарик купола
+      ctx.fillStyle = goldGrad;
+      ctx.fillRect(88, 16, 4, 18);
+      ctx.beginPath();
+      ctx.arc(90, 38, 7, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(81, 38, 18, 12);
+
+      // Главный свод купола Исаакия
+      ctx.beginPath();
+      ctx.arc(90, 108, 56, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fillStyle = goldGrad;
+      ctx.fill();
+
+      // Барабан (колоннада) под куполом
+      ctx.fillStyle = '#ca8a04';
+      ctx.fillRect(30, 110, 120, 18);
+      ctx.fillStyle = '#18181b';
+      for (let x = 38; x <= 138; x += 12) {
+        ctx.fillRect(x, 113, 5, 12);
+      }
+      // Основание
+      ctx.fillStyle = goldGrad;
+      ctx.fillRect(22, 130, 136, 8);
+
+      // 3. Геодезическое перекрестие (сетка нитей тахеометра) поверх купола
+      ctx.strokeStyle = '#38bdf8'; // Ярко-голубой контрастный прицел
+      ctx.lineWidth = 2.5;
+
+      // Внешнее кольцо прицела
+      ctx.beginPath();
+      ctx.arc(90, 88, 32, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Перекрестие нитей
+      ctx.beginPath();
+      ctx.moveTo(42, 88); ctx.lineTo(138, 88);
+      ctx.moveTo(90, 40); ctx.lineTo(90, 136);
+      ctx.stroke();
+
+      // Красная лазерная точка в центре наведения
+      ctx.beginPath();
+      ctx.arc(90, 88, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 4. Подпись внизу иконки
+      ctx.fillStyle = '#f4f4f5';
+      ctx.font = 'bold 17px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u0418\u0421\u0410\u0410\u041A\u0418\u0419', 90, 162);
+
+      // Подключаем сгенерированную PNG-иконку для iPhone
+      const link = document.createElement('link');
+      link.rel = 'apple-touch-icon';
+      link.href = c.toDataURL('image/png');
+      document.head.appendChild(link);
+    })();
+  </script>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-group">
+      <select id="stationSelect" onchange="onStationChange()"></select>
+      <button id="modeBtn" onclick="toggleEditMode()"></button>
+    </div>
+    <div class="topbar-group">
+      <button id="btnPlan" onclick="document.getElementById('planInput').click()"></button>
+      <input type="file" id="planInput" accept="application/pdf,image/*" style="display:none" onchange="handlePlanUpload(event)">
+      <button id="btnSaveProject" onclick="exportProjectBackup()"></button>
+      <button id="btnLoadProject" onclick="document.getElementById('projectInput').click()"></button>
+      <input type="file" id="projectInput" accept=".json" style="display:none" onchange="importProjectBackup(event)">
+      <button id="btnSummary" onclick="openTableModal()"></button>
+      <button class="btn-success" id="btnExcel" onclick="exportToExcel()">Excel</button>
+      <button id="btnClear" onclick="clearCurrentCycle()"></button>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div id="stationStats"></div>
+    <div id="stationShiftInfo"></div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Модальное окно ввода -->
+  <div class="modal-backdrop" id="inputModal" onclick="if(event.target===this) closeInputModal()">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <span class="modal-title" id="modalPtTitle"></span>
+        <button class="close-btn" onclick="closeInputModal()">&#10005;</button>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-cell">
+          <span class="info-label" id="lblBase"></span>
+          <span class="info-val" id="infoBaseH">&#8212;</span>
+        </div>
+        <div class="info-cell">
+          <span class="info-label" id="lblDiff"></span>
+          <span class="info-val" id="infoDiffBase">&#8212;</span>
+        </div>
+        <div class="info-cell">
+          <span class="info-label" id="lblDev"></span>
+          <span class="info-val" id="infoStDev">&#8212;</span>
+        </div>
+      </div>
+
+      <div class="history-chips" id="otherStationsHistory"></div>
+
+      <div class="field-lbl" id="lblTahometer"></div>
+      <div class="input-row">
+        <button type="button" class="sign-btn" onclick="toggleSign('zInput')">&plusmn;</button>
+        <input type="number" inputmode="decimal" id="zInput" oninput="onLiveInput()">
+      </div>
+
+      <div class="field-lbl" id="lblTape"></div>
+      <div class="input-row" style="margin-bottom: 10px;">
+        <input type="number" inputmode="decimal" id="tapeInput" oninput="onLiveInput()">
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-primary" id="btnSaveMeas" style="flex:2; padding:10px; font-size:15px;" onclick="saveMeasurement()"></button>
+        <button type="button" id="btnDelMeas" style="flex:1; background:#3f3f46;" onclick="deleteMeasurement()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Окно сводной таблицы -->
+  <div class="table-modal" id="tableModal">
+    <div class="topbar">
+      <span id="lblTableTitle" style="font-weight:700; font-size:15px;"></span>
+      <div class="topbar-group">
+        <button class="btn-success" id="btnDownloadXlsx" onclick="exportToExcel()"></button>
+        <button id="btnCloseTable" onclick="closeTableModal()"></button>
+      </div>
+    </div>
+    <div class="table-container" id="summaryTableWrap"></div>
+  </div>
+
+<script>
+const T = {
+  stPrefix: "\u0421\u0442",
+  modeSurvey: "\uD83D\uDCCD \u0421\u044A\u0435\u043C\u043A\u0430",
+  modeMove: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C",
+  btnPlan: "\uD83D\uDDFA \u041F\u043B\u0430\u043D",
+  btnSaveProj: "\uD83D\uDCBE \u0411\u0430\u0437\u0430",
+  btnLoadProj: "\uD83D\uDCC2 \u0411\u0430\u0437\u0430",
+  btnSummary: "\uD83D\uDCCA \u0421\u0432\u043E\u0434\u043A\u0430",
+  btnClear: "\uD83D\uDDD1",
+  lblBase: "\u0411\u0430\u0437\u0430 (\u041C\u0430\u0439 26)",
+  lblDiff: "\u0420\u0430\u0437\u043D. (\u0418\u0442\u043E\u0433\u2212\u0411\u0430\u0437\u0430)",
+  lblDev: "\u041E\u0442\u043A\u043B. \u043F\u043E \u0441\u0442\u0430\u043D\u0446\u0438\u0438",
+  lblTahometer: "\u041E\u0442\u0441\u0447\u0435\u0442 \u0442\u0430\u0445\u0435\u043E\u043C\u0435\u0442\u0440\u0430 (\u043C\u043C):",
+  lblTape: "\uD83D\uDCCF \u0420\u0443\u043B\u0435\u0442\u043A\u0430 \u0432\u043D\u0438\u0437 (+\u043C\u043C, \u0435\u0441\u043B\u0438 \u043F\u0440\u0438\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u043B\u0430\u0441\u044C):",
+  placeholderZ: "\u041E\u0442\u0441\u0447\u0435\u0442 (\u043C\u043C)",
+  placeholderTape: "0 (\u0431\u0435\u0437 \u0440\u0443\u043B\u0435\u0442\u043A\u0438)",
+  tapeShort: "\u0440\u0443\u043B.",
+  btnSave: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
+  btnDel: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
+  tableTitle: "\u0423\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u043D\u0438\u0435 \u0438 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435 \u0441 \u041C\u0430\u0435\u043C 2026",
+  btnDownloadXlsx: "\uD83D\uDCE5 \u0421\u043A\u0430\u0447\u0430\u0442\u044C .XLSX",
+  btnClose: "\u2715 \u0417\u0430\u043A\u0440\u044B\u0442\u044C",
+  svgHint: "\u0412\u0425\u041E\u0414 (\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041F\u043B\u0430\u043D\u00BB \u0441\u0432\u0435\u0440\u0445\u0443, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C PDF)",
+  stationWord: "\u0421\u0442",
+  measuredWord: "\u0421\u043D\u044F\u0442\u043E",
+  overlapsWord: "\u0421\u0432\u044F\u0437\u043E\u043A",
+  avgDiffWord: "\u0421\u0440. \u0440\u0430\u0437\u043D.",
+  mm: "\u043C\u043C",
+  pointWord: "\u0422\u043E\u0447\u043A\u0430 \u2116",
+  firstPt: "1-\u044F \u0442\u043E\u0447\u043A\u0430",
+  diffShort: "\u0440\u0430\u0437\u043D.",
+  colPt: "\u2116 \u0422\u043E\u0447\u043A\u0438",
+  colCnt: "\u041A\u043E\u043B-\u0432\u043E \u0441\u0442.",
+  colAvg: "\u0423\u0441\u0440\u0435\u0434\u043D. H (\u043C\u043C)",
+  colBase: "\u0411\u0430\u0437\u0430 (\u041C\u0430\u0439 26)",
+  colDelta: "\u0421\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u0394 (\u043C\u043C)",
+  shiftWord: "\u0441\u0434\u0432\u0438\u0433",
+  readingWord: "\u041E\u0442\u0441\u0447\u0435\u0442",
+  confirmClear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u0432\u0441\u0435 \u0432\u0432\u0435\u0434\u0435\u043D\u043D\u044B\u0435 \u043E\u0442\u0441\u0447\u0435\u0442\u044B \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u0446\u0438\u043A\u043B\u0430?",
+  loadedOk: "\u0411\u0430\u0437\u0430 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430!",
+  offlineReady: "\uD83D\uDFE2 \u041E\u0444\u043B\u0430\u0439\u043D"
+};
+
+const BASE_MAY_2026 = {
+  1: -2015, 2: -2027, 3: -19, 4: -2, 5: -89, 6: -87, 7: -139, 8: -144, 9: -1909, 10: -1904,
+  11: -2122, 12: -2128, 13: -35, 14: -32, 15: -40, 16: -37, 17: -39, 18: -37, 19: -2100, 20: -2091,
+  21: -1199, 22: -1174, 23: -1222, 24: -1228, 25: -1107, 26: -1092, 27: -1177, 28: -1191, 29: -1726, 30: -1722,
+  31: -1099, 32: -1104, 33: -1750, 34: -1751, 35: -1222, 36: -1216, 37: -1952, 38: -1947, 39: -1178, 40: -1185,
+  41: -1981, 42: -1993, 43: -1156, 44: -1149, 45: -357, 46: -330, 47: -251, 48: -240, 49: -193, 50: -187,
+  51: -418, 52: -438, 53: -349, 54: -360, 55: -303, 56: -310, 57: -302, 58: -293, 59: -310, 60: -317,
+  61: -291, 62: -317, 63: -288, 64: -294, 65: -321, 66: -325, 67: -359, 68: -337, 69: -1384, 70: -1416,
+  71: -1380, 72: -1393, 73: -1321, 74: -1350, 75: -1426, 76: -1394, 77: -1386, 78: -1374, 79: -1341, 80: -1327,
+  81: -1423, 82: -1434, 83: -1477, 84: -1475, 85: -1498, 86: -1492, 87: -1376, 88: -1404, 89: -1437, 90: -1441,
+  91: -1446, 92: -1457, 93: -1807, 94: -1784, 95: -1414, 96: -1393, 97: -1424, 98: -1386, 99: -1868, 100: -1873,
+  101: -1454, 102: -1456, 103: -1412, 104: -1432, 105: -1471, 106: -1471, 107: -1434, 108: -1431, 109: -1988, 110: -1988,
+  111: -1503, 112: -1516, 113: -1438, 114: -1441, 115: -2054, 116: -2059, 117: -1588, 118: -1578, 119: -432, 120: -461,
+  121: -375, 122: -353, 123: -328, 124: -336, 125: -2088, 126: -2086, 127: -376, 128: -350, 129: -1941, 130: -1951,
+  131: 743, 132: 735, 133: 1410, 134: 1422, 135: 1867, 136: 1898, 137: 1993, 138: 1986, 139: 1533, 140: 1536,
+  141: 765, 142: 776, 300: 3705
+};
+
+const ALL_POINT_IDS = Object.keys(BASE_MAY_2026).map(Number).sort((a,b) => a - b);
+
+const STATIONS = [
+  { id: 1,  name: T.stPrefix + '1',  color: '#ef4444' },
+  { id: 2,  name: T.stPrefix + '2',  color: '#f97316' },
+  { id: 3,  name: T.stPrefix + '3',  color: '#22c55e' },
+  { id: 4,  name: T.stPrefix + '4',  color: '#d946ef' },
+  { id: 5,  name: T.stPrefix + '5',  color: '#0ea5e9' },
+  { id: 6,  name: T.stPrefix + '6',  color: '#eab308' },
+  { id: 7,  name: T.stPrefix + '7',  color: '#ec4899' },
+  { id: 8,  name: T.stPrefix + '8',  color: '#f43f5e' },
+  { id: 9,  name: T.stPrefix + '9',  color: '#a855f7' },
+  { id: 10, name: T.stPrefix + '10', color: '#4ade80' },
+  { id: 11, name: T.stPrefix + '11', color: '#06b6d4' },
+  { id: 12, name: T.stPrefix + '12', color: '#94a3b8' },
+  { id: 13, name: T.stPrefix + '13', color: '#facc15' },
+  { id: 14, name: T.stPrefix + '14', color: '#fb7185' },
+  { id: 15, name: T.stPrefix + '15', color: '#3b82f6' }
+];
+
+function generateInitialLayout() {
+  const layout = {};
+  const setPt = (id, x, y) => { layout[id] = { x, y }; };
+  setPt(1, 185, 608); setPt(2, 198, 608);
+  setPt(37, 333, 608); setPt(38, 345, 608);
+  setPt(300, 463, 608);
+  setPt(41, 583, 608); setPt(42, 595, 608);
+  setPt(11, 730, 608); setPt(12, 742, 608);
+
+  setPt(93, 57, 535); setPt(94, 57, 520);
+  setPt(95, 106, 535); setPt(96, 106, 520);
+  setPt(97, 182, 535); setPt(98, 182, 520);
+  setPt(75, 198, 535); setPt(76, 198, 520);
+  setPt(77, 266, 535); setPt(78, 266, 520);
+  setPt(79, 326, 535); setPt(80, 318, 522);
+  setPt(39, 333, 512); setPt(40, 345, 512);
+
+  setPt(81, 595, 535); setPt(82, 595, 522);
+  setPt(43, 583, 512); setPt(44, 595, 512);
+  setPt(83, 663, 535); setPt(84, 663, 520);
+  setPt(85, 730, 535); setPt(86, 730, 520);
+  setPt(111, 745, 535); setPt(112, 745, 520);
+  setPt(113, 816, 535); setPt(114, 816, 520);
+  setPt(115, 870, 535); setPt(116, 870, 520);
+
+  setPt(21, 95, 435); setPt(22, 112, 435);
+  setPt(121, 182, 450); setPt(122, 182, 435);
+  setPt(45, 198, 450); setPt(46, 198, 435);
+  setPt(3, 185, 422); setPt(4, 198, 422);
+  setPt(47, 266, 450); setPt(48, 266, 435);
+  setPt(49, 297, 450); setPt(50, 292, 435);
+
+  setPt(63, 623, 450); setPt(64, 627, 435);
+  setPt(65, 663, 450); setPt(66, 663, 435);
+  setPt(67, 730, 450); setPt(68, 730, 435);
+  setPt(127, 745, 450); setPt(128, 745, 435);
+  setPt(13, 730, 422); setPt(14, 745, 422);
+  setPt(25, 808, 435); setPt(26, 824, 435);
+  setPt(129, 870, 450); setPt(130, 870, 435);
+
+  setPt(131, 198, 360); setPt(132, 198, 345);
+  setPt(5, 185, 332); setPt(6, 198, 332);
+  setPt(133, 262, 360); setPt(134, 262, 345);
+  setPt(135, 278, 360); setPt(136, 278, 345);
+
+  setPt(137, 646, 360); setPt(138, 646, 345);
+  setPt(139, 663, 360); setPt(140, 663, 345);
+  setPt(141, 728, 360); setPt(142, 728, 345);
+  setPt(15, 730, 332); setPt(16, 745, 332);
+
+  setPt(117, 68, 268); setPt(118, 68, 252);
+  setPt(23, 98, 268); setPt(24, 114, 268);
+  setPt(7, 185, 282); setPt(8, 198, 282);
+  setPt(119, 182, 268); setPt(120, 182, 252);
+  setPt(51, 198, 268); setPt(52, 198, 252);
+  setPt(53, 266, 268); setPt(54, 266, 252);
+  setPt(55, 294, 268); setPt(56, 300, 252);
+
+  setPt(57, 626, 268); setPt(58, 623, 252);
+  setPt(59, 663, 268); setPt(60, 663, 252);
+  setPt(17, 730, 282); setPt(18, 745, 282);
+  setPt(61, 730, 268); setPt(62, 730, 252);
+  setPt(123, 745, 268); setPt(124, 745, 252);
+  setPt(27, 808, 268); setPt(28, 824, 268);
+  setPt(125, 870, 268); setPt(126, 870, 252);
+
+  setPt(99, 52, 188); setPt(100, 52, 172);
+  setPt(101, 106, 188); setPt(102, 106, 172);
+  setPt(103, 182, 188); setPt(104, 182, 172);
+  setPt(69, 198, 188); setPt(70, 198, 172);
+  setPt(71, 266, 188); setPt(72, 266, 172);
+  setPt(31, 333, 200); setPt(32, 348, 200);
+  setPt(73, 333, 188); setPt(74, 333, 172);
+
+  setPt(35, 578, 200); setPt(36, 595, 200);
+  setPt(87, 578, 188); setPt(88, 578, 172);
+  setPt(89, 663, 188); setPt(90, 663, 172);
+  setPt(91, 730, 188); setPt(92, 730, 172);
+  setPt(105, 745, 188); setPt(106, 745, 172);
+  setPt(107, 816, 188); setPt(108, 816, 172);
+  setPt(109, 872, 188); setPt(110, 872, 172);
+
+  setPt(9, 185, 120); setPt(10, 198, 120);
+  setPt(29, 333, 120); setPt(30, 348, 120);
+  setPt(33, 578, 120); setPt(34, 595, 120);
+  setPt(19, 730, 120); setPt(20, 745, 120);
+
+  return layout;
+}
+
+let state = {
+  activeStation: 1,
+  editMode: false,
+  selectedPt: null,
+  swReady: false,
+  coords: JSON.parse(localStorage.getItem('isaak_coords')) || generateInitialLayout(),
+  measurements: JSON.parse(localStorage.getItem('isaak_meas')) || {},
+  bgDataUrl: localStorage.getItem('isaak_bg_img') || null
+};
+
+function migrateMeasurements() {
+  for (const stId of Object.keys(state.measurements)) {
+    for (const ptId of Object.keys(state.measurements[stId])) {
+      const val = state.measurements[stId][ptId];
+      if (typeof val === 'number') {
+        state.measurements[stId][ptId] = { z: val, tape: 0 };
+      }
+    }
+  }
+}
+migrateMeasurements();
+
+function saveState() {
+  localStorage.setItem('isaak_coords', JSON.stringify(state.coords));
+  localStorage.setItem('isaak_meas', JSON.stringify(state.measurements));
+  if (state.bgDataUrl) {
+    try { localStorage.setItem('isaak_bg_img', state.bgDataUrl); } catch(e) {}
+  }
+}
+
+let map, imageOverlay;
+let markersMap = {};
+const PLAN_W = 1000, PLAN_H = 700;
+
+window.onload = () => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(() => {
+      state.swReady = true;
+      updateStatusBar();
+    }).catch(() => {});
+  }
+
+  document.getElementById('modeBtn').textContent = T.modeSurvey;
+  document.getElementById('btnPlan').textContent = T.btnPlan;
+  document.getElementById('btnSaveProject').textContent = T.btnSaveProj;
+  document.getElementById('btnLoadProject').textContent = T.btnLoadProj;
+  document.getElementById('btnSummary').textContent = T.btnSummary;
+  document.getElementById('btnClear').textContent = T.btnClear;
+  document.getElementById('lblBase').textContent = T.lblBase;
+  document.getElementById('lblDiff').textContent = T.lblDiff;
+  document.getElementById('lblDev').textContent = T.lblDev;
+  document.getElementById('lblTahometer').textContent = T.lblTahometer;
+  document.getElementById('lblTape').textContent = T.lblTape;
+  document.getElementById('zInput').placeholder = T.placeholderZ;
+  document.getElementById('tapeInput').placeholder = T.placeholderTape;
+  document.getElementById('btnSaveMeas').textContent = T.btnSave;
+  document.getElementById('btnDelMeas').textContent = T.btnDel;
+  document.getElementById('lblTableTitle').textContent = T.tableTitle;
+  document.getElementById('btnDownloadXlsx').textContent = T.btnDownloadXlsx;
+  document.getElementById('btnCloseTable').textContent = T.btnClose;
+
+  initStationSelect();
+  initMap();
+  if (state.bgDataUrl) {
+    setMapBackground(state.bgDataUrl);
+  } else {
+    setMapBackground(createDefaultSvgPlan());
+  }
+  renderMarkers();
+  updateStatusBar();
+};
+
+function initStationSelect() {
+  const sel = document.getElementById('stationSelect');
+  sel.innerHTML = '';
+  STATIONS.forEach(st => {
+    const opt = document.createElement('option');
+    opt.value = st.id;
+    opt.textContent = st.name;
+    sel.appendChild(opt);
+  });
+  sel.value = state.activeStation;
+  updateSelectColor();
+}
+
+function updateSelectColor() {
+  const st = STATIONS.find(s => s.id == state.activeStation);
+  const sel = document.getElementById('stationSelect');
+  sel.style.borderLeft = `8px solid ${st.color}`;
+}
+
+function initMap() {
+  map = L.map('map', {
+    crs: L.CRS.Simple,
+    minZoom: -1,
+    maxZoom: 4,
+    zoomSnap: 0.25,
+    attributionControl: false
+  });
+  const bounds = [[0, 0], [PLAN_H, PLAN_W]];
+  map.fitBounds(bounds);
+}
+
+function setMapBackground(dataUrl) {
+  const bounds = [[0, 0], [PLAN_H, PLAN_W]];
+  if (imageOverlay) map.removeLayer(imageOverlay);
+  imageOverlay = L.imageOverlay(dataUrl, bounds).addTo(map);
+}
+
+function createDefaultSvgPlan() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" width="1000" height="700">
+    <rect width="1000" height="700" fill="#f8fafc"/>
+    <rect x="40" y="90" width="850" height="540" fill="none" stroke="#64748b" stroke-width="3"/>
+    <circle cx="463" cy="360" r="165" fill="none" stroke="#475569" stroke-width="4"/>
+    <circle cx="463" cy="360" r="145" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4"/>
+    <text x="463" y="665" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#334155">${T.svgHint}</text>
+  </svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+async function handlePlanUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.type === 'application/pdf') {
+    const arrayBuffer = await file.arrayBuffer();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    state.bgDataUrl = dataUrl;
+    saveState();
+    setMapBackground(dataUrl);
+  } else {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      state.bgDataUrl = ev.target.result;
+      saveState();
+      setMapBackground(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function getEffectiveZ(measObj) {
+  if (!measObj) return null;
+  if (typeof measObj === 'number') return measObj;
+  return Number(measObj.z || 0) + Number(measObj.tape || 0);
+}
+
+function getStationAvgDiff(stId, excludePtId = null) {
+  const stMeas = state.measurements[stId] || {};
+  const diffs = [];
+  for (const [ptIdStr, mObj] of Object.entries(stMeas)) {
+    const ptId = Number(ptIdStr);
+    if (ptId === excludePtId) continue;
+    const effZ = getEffectiveZ(mObj);
+    if (effZ !== null && BASE_MAY_2026[ptId] !== undefined) {
+      diffs.push(effZ - BASE_MAY_2026[ptId]);
+    }
+  }
+  if (!diffs.length) return null;
+  diffs.sort((a,b) => a - b);
+  const mid = Math.floor(diffs.length / 2);
+  return diffs.length % 2 !== 0 ? diffs[mid] : (diffs[mid - 1] + diffs[mid]) / 2;
+}
+
+// Генерация концентрических колец с черными разделительными полосами через многослойный box-shadow
+function buildConcentricRingsShadow(stationIds, hasError) {
+  if (stationIds.length === 0) {
+    return '0 1px 3px rgba(0,0,0,0.4)';
+  }
+  const shadows = [];
+  let radius = 0;
+  const ringWidth = 3.5; // Толщина каждого цветного кольца станции (px)
+  const sepWidth = 1.0;  // Толщина черной разделительной линии между кольцами (px)
+
+  stationIds.forEach((stId) => {
+    const st = STATIONS.find(s => s.id == stId);
+    const col = st ? st.color : '#ccc';
+    
+    // Цветное кольцо станции
+    radius += ringWidth;
+    shadows.push(`0 0 0 ${radius}px ${col}`);
+    
+    // Черное разделительное кольцо снаружи
+    radius += sepWidth;
+    shadows.push(`0 0 0 ${radius}px #111111`);
+  });
+
+  if (hasError) {
+    radius += 2.5;
+    shadows.push(`0 0 0 ${radius}px #ef4444`);
+    shadows.push(`0 0 ${radius + 6}px #ef4444`);
+  } else {
+    shadows.push(`0 2px ${radius + 4}px rgba(0,0,0,0.55)`);
+  }
+
+  return shadows.join(', ');
+}
+
+function renderMarkers() {
+  Object.values(markersMap).forEach(m => map.removeLayer(m));
+  markersMap = {};
+
+  const curSt = state.activeStation;
+  const stMedianDiff = getStationAvgDiff(curSt);
+
+  ALL_POINT_IDS.forEach(ptId => {
+    const c = state.coords[ptId] || { x: 500, y: 350 };
+    const measuredStations = [];
+    for (const st of STATIONS) {
+      if (state.measurements[st.id] && state.measurements[st.id][ptId] !== undefined) {
+        measuredStations.push(st.id);
+      }
+    }
+
+    const isMeasuredOnCur = measuredStations.includes(Number(curSt));
+    let hasError = false;
+
+    if (isMeasuredOnCur && stMedianDiff !== null) {
+      const effZ = getEffectiveZ(state.measurements[curSt][ptId]);
+      const diff = effZ - BASE_MAY_2026[ptId];
+      if (Math.abs(diff - stMedianDiff) > 4) {
+        hasError = true;
+      }
+    }
+
+    const boxShadow = buildConcentricRingsShadow(measuredStations, hasError);
+    const activeClass = isMeasuredOnCur ? 'pt-core-active' : '';
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="pt-core ${activeClass}" style="box-shadow: ${boxShadow};">${ptId}</div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+
+    const marker = L.marker([c.y, c.x], {
+      icon,
+      draggable: state.editMode,
+      zIndexOffset: isMeasuredOnCur ? 500 : (measuredStations.length * 100)
+    }).addTo(map);
+
+    marker.on('click', () => {
+      if (!state.editMode) openInputModal(ptId);
+    });
+
+    marker.on('dragend', (ev) => {
+      const pos = ev.target.getLatLng();
+      state.coords[ptId] = { x: Math.round(pos.lng * 10) / 10, y: Math.round(pos.lat * 10) / 10 };
+      saveState();
+    });
+
+    markersMap[ptId] = marker;
+  });
+}
+
+function onStationChange() {
+  state.activeStation = Number(document.getElementById('stationSelect').value);
+  updateSelectColor();
+  renderMarkers();
+  updateStatusBar();
+}
+
+function toggleEditMode() {
+  state.editMode = !state.editMode;
+  const btn = document.getElementById('modeBtn');
+  if (state.editMode) {
+    btn.textContent = T.modeMove;
+    btn.className = 'btn-warn';
+  } else {
+    btn.textContent = T.modeSurvey;
+    btn.className = '';
+  }
+  renderMarkers();
+}
+
+function updateStatusBar() {
+  const stId = state.activeStation;
+  const stName = STATIONS.find(s => s.id == stId).name;
+  const stMeas = state.measurements[stId] || {};
+  const count = Object.keys(stMeas).length;
+
+  let overlaps = 0;
+  for (const ptId of Object.keys(stMeas)) {
+    for (const s of STATIONS) {
+      if (s.id != stId && state.measurements[s.id] && state.measurements[s.id][ptId] !== undefined) {
+        overlaps++;
+        break;
+      }
+    }
+  }
+
+  const avgDiff = getStationAvgDiff(stId);
+  const swBadge = state.swReady ? ` | <span style="color:#22c55e;">${T.offlineReady}</span>` : '';
+  document.getElementById('stationStats').innerHTML =
+    `<b>${stName}</b> | ${T.measuredWord}: <b>${count}</b> | ${T.overlapsWord}: <b>${overlaps}</b>${swBadge}`;
+  document.getElementById('stationShiftInfo').innerHTML =
+    `${T.avgDiffWord}: <b>${avgDiff !== null ? (avgDiff > 0 ? '+' : '') + Math.round(avgDiff * 10)/10 + ' ' + T.mm : '\u2014'}</b>`;
+}
+
+function openInputModal(ptId) {
+  state.selectedPt = ptId;
+  const stId = state.activeStation;
+  const stObj = STATIONS.find(s => s.id == stId);
+
+  document.getElementById('modalPtTitle').innerHTML =
+    `${T.pointWord}${ptId} <span style="background:${stObj.color};color:#000;padding:2px 8px;border-radius:6px;font-size:13px;border:1px solid #000;">${stObj.name}</span>`;
+  document.getElementById('infoBaseH').textContent = BASE_MAY_2026[ptId] ?? '\u2014';
+
+  const chipsContainer = document.getElementById('otherStationsHistory');
+  chipsContainer.innerHTML = '';
+  STATIONS.forEach(s => {
+    if (state.measurements[s.id] && state.measurements[s.id][ptId] !== undefined) {
+      const mObj = state.measurements[s.id][ptId];
+      const effZ = getEffectiveZ(mObj);
+      const d = effZ - BASE_MAY_2026[ptId];
+      const tapeStr = (mObj.tape && mObj.tape !== 0) ? ` (${T.tapeShort}+${mObj.tape})` : '';
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.style.background = s.color;
+      chip.textContent = `${s.name}: ${effZ}${tapeStr} (${T.diffShort} ${d > 0 ? '+' : ''}${d})`;
+      chipsContainer.appendChild(chip);
+    }
+  });
+
+  const curObj = state.measurements[stId]?.[ptId];
+  const zInp = document.getElementById('zInput');
+  const tapeInp = document.getElementById('tapeInput');
+  
+  if (curObj !== undefined) {
+    if (typeof curObj === 'number') {
+      zInp.value = curObj;
+      tapeInp.value = '';
+    } else {
+      zInp.value = curObj.z !== undefined ? curObj.z : '';
+      tapeInp.value = (curObj.tape !== undefined && curObj.tape !== 0) ? curObj.tape : '';
+    }
+  } else {
+    zInp.value = '';
+    tapeInp.value = '';
+  }
+  
+  document.getElementById('inputModal').classList.add('active');
+  onLiveInput();
+  zInp.focus();
+}
+
+function onLiveInput() {
+  const ptId = state.selectedPt;
+  const stId = state.activeStation;
+  const rawZ = document.getElementById('zInput').value;
+  const rawTape = document.getElementById('tapeInput').value;
+  const diffEl = document.getElementById('infoDiffBase');
+  const devEl = document.getElementById('infoStDev');
+
+  if (rawZ === '' || isNaN(Number(rawZ))) {
+    diffEl.textContent = '\u2014';
+    devEl.textContent = '\u2014';
+    devEl.style.color = '#fff';
+    return;
+  }
+
+  const z = Number(rawZ);
+  const tape = rawTape === '' || isNaN(Number(rawTape)) ? 0 : Number(rawTape);
+  const effZ = z + tape;
+
+  const baseH = BASE_MAY_2026[ptId];
+  const diff = effZ - baseH;
+  diffEl.textContent = (diff > 0 ? '+' : '') + diff;
+
+  const otherAvg = getStationAvgDiff(stId, ptId);
+  if (otherAvg === null) {
+    devEl.textContent = T.firstPt;
+    devEl.style.color = '#a1a1aa';
+  } else {
+    const dev = Math.round((diff - otherAvg) * 10) / 10;
+    devEl.textContent = (dev > 0 ? '+' : '') + dev + ' ' + T.mm;
+    if (Math.abs(dev) <= 2) devEl.style.color = '#22c55e';
+    else if (Math.abs(dev) <= 4) devEl.style.color = '#eab308';
+    else devEl.style.color = '#ef4444';
+  }
+}
+
+function toggleSign(inputId) {
+  const inp = document.getElementById(inputId);
+  if (inp.value === '') {
+    inp.value = '-';
+  } else if (inp.value.startsWith('-')) {
+    inp.value = inp.value.substring(1);
+  } else {
+    inp.value = '-' + inp.value;
+  }
+  onLiveInput();
+  inp.focus();
+}
+
+function saveMeasurement() {
+  const ptId = state.selectedPt;
+  const stId = state.activeStation;
+  const rawZ = document.getElementById('zInput').value;
+  const rawTape = document.getElementById('tapeInput').value;
+  if (rawZ === '' || isNaN(Number(rawZ))) return;
+
+  const z = Number(rawZ);
+  const tape = rawTape === '' || isNaN(Number(rawTape)) ? 0 : Number(rawTape);
+
+  if (!state.measurements[stId]) state.measurements[stId] = {};
+  state.measurements[stId][ptId] = { z, tape };
+  saveState();
+  closeInputModal();
+  renderMarkers();
+  updateStatusBar();
+}
+
+function deleteMeasurement() {
+  const ptId = state.selectedPt;
+  const stId = state.activeStation;
+  if (state.measurements[stId]) {
+    delete state.measurements[stId][ptId];
+    saveState();
+  }
+  closeInputModal();
+  renderMarkers();
+  updateStatusBar();
+}
+
+function closeInputModal() {
+  document.getElementById('inputModal').classList.remove('active');
+}
+
+document.getElementById('zInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveMeasurement();
+});
+document.getElementById('tapeInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveMeasurement();
+});
+
+function computeAdjustedNetwork() {
+  const activeStations = STATIONS.map(s => s.id).filter(
+    stId => state.measurements[stId] && Object.keys(state.measurements[stId]).length > 0
+  );
+
+  const shifts = {};
+  activeStations.forEach(stId => {
+    const stMeas = state.measurements[stId];
+    let sum = 0, cnt = 0;
+    for (const [ptId, mObj] of Object.entries(stMeas)) {
+      const effZ = getEffectiveZ(mObj);
+      sum += (BASE_MAY_2026[ptId] - effZ);
+      cnt++;
+    }
+    shifts[stId] = cnt > 0 ? sum / cnt : 0;
+  });
+
+  const avgPoints = {};
+  for (let iter = 0; iter < 80; iter++) {
+    ALL_POINT_IDS.forEach(ptId => {
+      let sum = 0, cnt = 0;
+      activeStations.forEach(stId => {
+        const mObj = state.measurements[stId]?.[ptId];
+        const effZ = getEffectiveZ(mObj);
+        if (effZ !== null) {
+          sum += (effZ + shifts[stId]);
+          cnt++;
+        }
+      });
+      if (cnt > 0) avgPoints[ptId] = sum / cnt;
+    });
+
+    activeStations.forEach(stId => {
+      const stMeas = state.measurements[stId];
+      let sum = 0, cnt = 0;
+      for (const [ptId, mObj] of Object.entries(stMeas)) {
+        const effZ = getEffectiveZ(mObj);
+        sum += (avgPoints[ptId] - effZ);
+        cnt++;
+      }
+      if (cnt > 0) shifts[stId] = sum / cnt;
+    });
+
+    let totalDiff = 0, totalPts = 0;
+    for (const [ptId, hVal] of Object.entries(avgPoints)) {
+      totalDiff += (hVal - BASE_MAY_2026[ptId]);
+      totalPts++;
+    }
+    if (totalPts > 0) {
+      const globalOffset = totalDiff / totalPts;
+      activeStations.forEach(stId => { shifts[stId] -= globalOffset; });
+      for (const ptId of Object.keys(avgPoints)) { avgPoints[ptId] -= globalOffset; }
+    }
+  }
+
+  const roundedShifts = {};
+  activeStations.forEach(stId => {
+    roundedShifts[stId] = Math.round(shifts[stId] * 10) / 10;
+  });
+
+  const pointResults = {};
+  ALL_POINT_IDS.forEach(ptId => {
+    const vals = [];
+    activeStations.forEach(stId => {
+      const mObj = state.measurements[stId]?.[ptId];
+      const effZ = getEffectiveZ(mObj);
+      if (effZ !== null) {
+        vals.push(effZ + roundedShifts[stId]);
+      }
+    });
+    const count = vals.length;
+    const avgH = count > 0 ? Math.round(vals.reduce((a,b) => a + b, 0) / count) : null;
+    const baseH = BASE_MAY_2026[ptId];
+    const delta = avgH !== null ? (avgH - baseH) : null;
+    pointResults[ptId] = { count, avgH, baseH, delta };
+  });
+
+  return { shifts: roundedShifts, pointResults };
+}
+
+function openTableModal() {
+  const { shifts, pointResults } = computeAdjustedNetwork();
+  const wrap = document.getElementById('summaryTableWrap');
+
+  let html = `<table><thead><tr>
+    <th>${T.colPt}</th>
+    <th>${T.colCnt}</th>
+    <th>${T.colAvg}</th>
+    <th>${T.colBase}</th>
+    <th>${T.colDelta}</th>`;
+
+  STATIONS.forEach(st => {
+    const sh = shifts[st.id] !== undefined ? (shifts[st.id] > 0 ? '+' : '') + shifts[st.id] : '\u2014';
+    html += `<th style="background:${st.color};color:#000;">${st.name}<br><small>${T.shiftWord}: ${sh}</small></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  ALL_POINT_IDS.forEach(ptId => {
+    const r = pointResults[ptId];
+    const deltaColor = r.delta === null ? '' : (Math.abs(r.delta) > 5 ? 'color:#ef4444;font-weight:bold;' : 'color:#22c55e;');
+    html += `<tr>
+      <td class="pt-col">${ptId}</td>
+      <td style="text-align:center;">${r.count || '-'}</td>
+      <td style="font-weight:bold;">${r.avgH !== null ? r.avgH : '-'}</td>
+      <td>${r.baseH}</td>
+      <td style="${deltaColor}">${r.delta !== null ? (r.delta > 0 ? '+' : '') + r.delta : '-'}</td>`;
+
+    STATIONS.forEach(st => {
+      const mObj = state.measurements[st.id]?.[ptId];
+      const effZ = getEffectiveZ(mObj);
+      if (effZ !== null) {
+        const adj = Math.round(effZ + (shifts[st.id] || 0));
+        const tapeInfo = (mObj.tape && mObj.tape !== 0) ? ` <span style="color:#eab308;font-size:10px;">[${T.tapeShort}+${mObj.tape}]</span>` : '';
+        html += `<td>${adj}${tapeInfo} <span style="color:#a1a1aa;font-size:10px;">(${effZ})</span></td>`;
+      } else {
+        html += `<td style="text-align:center;color:#52525b;">-</td>`;
+      }
+    });
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+  document.getElementById('tableModal').classList.add('active');
+}
+
+function closeTableModal() {
+  document.getElementById('tableModal').classList.remove('active');
+}
+
+function exportToExcel() {
+  const { shifts, pointResults } = computeAdjustedNetwork();
+  const rows = [];
+
+  const header1 = [];
+  STATIONS.forEach(st => {
+    header1.push(`${st.name} (${T.readingWord})`, `${T.diffShort} ${st.id}`);
+  });
+  header1.push(T.colPt, T.colAvg, T.colCnt, T.colBase, T.colDelta);
+  STATIONS.forEach(st => {
+    const sh = shifts[st.id] !== undefined ? shifts[st.id] : 0;
+    header1.push(`${st.name} (${T.shiftWord}: ${sh})`);
+  });
+  rows.push(header1);
+
+  ALL_POINT_IDS.forEach(ptId => {
+    const row = [];
+    const baseH = BASE_MAY_2026[ptId];
+    const res = pointResults[ptId];
+
+    STATIONS.forEach(st => {
+      const mObj = state.measurements[st.id]?.[ptId];
+      const effZ = getEffectiveZ(mObj);
+      if (effZ !== null) {
+        const tapeNote = (mObj.tape && mObj.tape !== 0) ? ` (${T.tapeShort}+${mObj.tape})` : '';
+        row.push(tapeNote ? `${effZ}${tapeNote}` : effZ, effZ - baseH);
+      } else {
+        row.push('-', '-');
+      }
+    });
+
+    row.push(
+      ptId,
+      res.avgH !== null ? res.avgH : '-',
+      res.count,
+      baseH,
+      res.delta !== null ? res.delta : '-'
+    );
+
+    STATIONS.forEach(st => {
+      const mObj = state.measurements[st.id]?.[ptId];
+      const effZ = getEffectiveZ(mObj);
+      if (effZ !== null && shifts[st.id] !== undefined) {
+        row.push(Math.round(effZ + shifts[st.id]));
+      } else {
+        row.push('-');
+      }
+    });
+
+    rows.push(row);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Monitoring');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Isaakiy_Krovlya_${dateStr}.xlsx`);
+}
+
+function exportProjectBackup() {
+  const backup = {
+    coords: state.coords,
+    measurements: state.measurements,
+    bgDataUrl: state.bgDataUrl
+  };
+  const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'isaakiy_project_base.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importProjectBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.coords) state.coords = data.coords;
+      if (data.measurements) {
+        state.measurements = data.measurements;
+        migrateMeasurements();
+      }
+      if (data.bgDataUrl) {
+        state.bgDataUrl = data.bgDataUrl;
+        setMapBackground(state.bgDataUrl);
+      }
+      saveState();
+      renderMarkers();
+      updateStatusBar();
+      alert(T.loadedOk);
+    } catch (err) {
+      alert('Error JSON');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function clearCurrentCycle() {
+  if (confirm(T.confirmClear)) {
+    state.measurements = {};
+    saveState();
+    renderMarkers();
+    updateStatusBar();
+  }
+}
+</script>
+</body>
+</html>
