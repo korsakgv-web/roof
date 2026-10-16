@@ -8,7 +8,6 @@
   <meta name="apple-mobile-web-app-title" content="&#1050;&#1088;&#1086;&#1074;&#1083;&#1080;">
   <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#1086;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
 
-  <!-- Статическая иконка для домашнего экрана iOS (Золотистый купол с прицелом) -->
   <link id="appIcon" rel="apple-touch-icon" href="">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -17,7 +16,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
-    // Генерация иконки при старте
     window.addEventListener('DOMContentLoaded', () => {
       const c = document.createElement('canvas');
       c.width = 180; c.height = 180;
@@ -135,7 +133,6 @@
     .station-select-wrapper {
       position: relative; flex: 2; display: flex; align-items: center;
     }
-    /* Классический серый фон кнопки выбора со вставкой цвета слева */
     .station-select {
       width: 100%; background: #3f3f46; color: #fff; border: 1px solid #52525b;
       padding: 8px 12px 8px 36px; border-radius: 10px; font-size: 15px; font-weight: 800;
@@ -161,9 +158,17 @@
     }
     .status-bar b { color: #fff; }
 
-    #map { flex: 1; width: 100%; background: #e5e5e5; }
+    #map { flex: 1; width: 100%; background: #e5e5e5; transition: background 0.2s; }
 
-    /* Мягкие маркеры без рамок и подчеркиваний, только жирный шрифт */
+    /* Темный режим: черный фон карты + инверсия PDF с сохранением цветов станций */
+    body.dark-plan #map {
+      background: #09090b;
+    }
+    body.dark-plan .leaflet-image-layer {
+      filter: invert(1) hue-rotate(180deg) contrast(1.05);
+    }
+
+    /* Светлый режим кружков (по умолчанию) */
     .pt-core {
       width: 20px; height: 20px;
       border-radius: 50%;
@@ -182,7 +187,20 @@
       color: #000000;
       font-weight: 800 !important;
       font-size: 11px !important;
-      border: 1.5px solid #000;
+    }
+
+    /* Темный режим кружков: черный фон кружка + белый текст, а у активной станции жирный желтый текст */
+    body.dark-plan .pt-core {
+      background: #18181b;
+      color: #ffffff;
+      border-color: #71717a;
+    }
+    body.dark-plan .pt-core-active {
+      background: #18181b;
+      color: #facc15 !important;
+      font-weight: 800 !important;
+      font-size: 11px !important;
+      border-color: #facc15;
     }
 
     .modal-backdrop {
@@ -275,6 +293,7 @@
       <button type="button" id="btnLoadProject" onclick="document.getElementById('projectInput').click()"></button>
       <input type="file" id="projectInput" accept=".json" style="display:none" onchange="importProjectBackup(event)">
       <button type="button" id="modeBtn" onclick="toggleEditMode()"></button>
+      <button type="button" id="themeBtn" onclick="toggleDarkPlan()"></button>
     </div>
     <div class="service-group">
       <button type="button" class="excel-btn" id="btnExcel" onclick="exportToExcel()">Excel</button>
@@ -359,6 +378,8 @@ const T = {
   stPrefix: "\u0421\u0442",
   modeCorrection: "\u270F\uFE0F \u041A\u043E\u0440\u0440\u0435\u043A\u0446\u0438\u044F",
   modeMoveActive: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C",
+  themeDark: "\uD83C\uDF19 \u0422\u0435\u043C\u043D.",
+  themeLight: "\u2600\uFE0F \u0421\u0432\u0435\u0442.",
   btnPlan: "\uD83D\uDDFA \u041F\u043B\u0430\u043D",
   btnSaveProj: "\uD83D\uDCBE \u0411\u0430\u0437\u0430",
   btnLoadProj: "\uD83D\uDCC2 \u0417\u0430\u0433\u0440.",
@@ -397,7 +418,7 @@ const T = {
   offlineReady: "\uD83D\uDFE2 \u041E\u0444\u043B\u0430\u0439\u043D",
   firstActiveSt: "\u041F\u0435\u0440\u0432\u0430\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u0430\u044F \u0441\u0442\u0430\u043D\u0446\u0438\u044F \u0432 \u0446\u0438\u043A\u043B\u0435",
   ovWith: "\u041F\u0435\u0440\u0435\u043A\u0440\u044B\u0442\u0438\u0435 \u0441 ",
-  ovYes: "\u0415\u0421\u0422\u0420",
+  ovYes: "\u0415\u0421\u0422\u042C",
   ovNo: "\u041D\u0415\u0422 (0 \u0442\u0447\u043A)",
   ovPts: "\u0442\u0447\u043A",
   thisPtMakesLink: " \u2014 \u044D\u0442\u0430 \u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0441\u0442 \u0441\u0432\u044F\u0437\u043A\u0443!"
@@ -534,6 +555,7 @@ function generateInitialLayout() {
 let state = {
   activeStation: 1,
   editMode: false,
+  darkPlan: localStorage.getItem('isaak_dark_plan') === '1',
   selectedPt: null,
   swReady: false,
   stationOrder: JSON.parse(localStorage.getItem('isaak_st_order')) || [],
@@ -558,6 +580,7 @@ function saveState() {
   localStorage.setItem('isaak_coords', JSON.stringify(state.coords));
   localStorage.setItem('isaak_meas', JSON.stringify(state.measurements));
   localStorage.setItem('isaak_st_order', JSON.stringify(state.stationOrder));
+  localStorage.setItem('isaak_dark_plan', state.darkPlan ? '1' : '0');
   if (state.bgDataUrl) {
     try { localStorage.setItem('isaak_bg_img', state.bgDataUrl); } catch(e) {}
   }
@@ -620,6 +643,7 @@ window.onload = () => {
   document.getElementById('btnDownloadXlsx').textContent = T.btnDownloadXlsx;
   document.getElementById('btnCloseTable').textContent = T.btnClose;
 
+  applyDarkPlanUI();
   initStationSelect();
   initMap();
   if (state.bgDataUrl) {
@@ -630,6 +654,24 @@ window.onload = () => {
   renderMarkers();
   updateStatusBar();
 };
+
+function applyDarkPlanUI() {
+  const btn = document.getElementById('themeBtn');
+  if (state.darkPlan) {
+    document.body.classList.add('dark-plan');
+    btn.textContent = T.themeLight;
+  } else {
+    document.body.classList.remove('dark-plan');
+    btn.textContent = T.themeDark;
+  }
+}
+
+function toggleDarkPlan() {
+  state.darkPlan = !state.darkPlan;
+  saveState();
+  applyDarkPlanUI();
+  renderMarkers();
+}
 
 function initStationSelect() {
   const sel = document.getElementById('stationSelect');
@@ -738,20 +780,22 @@ function getStationAvgDiff(stId, excludePtId = null) {
 
 function buildConcentricRingsShadow(stationIds, hasError) {
   if (stationIds.length === 0) {
-    return '0 1px 3px rgba(0,0,0,0.4)';
+    return state.darkPlan ? '0 1px 4px rgba(0,0,0,0.85)' : '0 1px 3px rgba(0,0,0,0.4)';
   }
   const shadows = [];
   let radius = 0;
   const ringWidth = 3.5;
   const sepWidth = 1.0;
 
-  stationIds.forEach((stId) => {
+  stationIds.forEach((stId, idx) => {
     const st = STATIONS.find(s => s.id == stId);
     const col = st ? st.color : '#ccc';
     radius += ringWidth;
     shadows.push(`0 0 0 ${radius}px ${col}`);
     radius += sepWidth;
-    shadows.push(`0 0 0 ${radius}px #111111`);
+    // В темном режиме самый внешний контур делаем чуть светлее, чтобы не сливался с черным фоном
+    const sepCol = (state.darkPlan && idx === stationIds.length - 1) ? '#52525b' : '#111111';
+    shadows.push(`0 0 0 ${radius}px ${sepCol}`);
   });
 
   if (hasError) {
@@ -759,7 +803,7 @@ function buildConcentricRingsShadow(stationIds, hasError) {
     shadows.push(`0 0 0 ${radius}px #ef4444`);
     shadows.push(`0 0 ${radius + 6}px #ef4444`);
   } else {
-    shadows.push(`0 2px ${radius + 4}px rgba(0,0,0,0.55)`);
+    shadows.push(`0 2px ${radius + 4}px rgba(0,0,0,0.65)`);
   }
 
   return shadows.join(', ');
