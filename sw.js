@@ -1,4 +1,4 @@
-const CACHE_NAME = 'isaakiy-roof-offline-v6';
+const CACHE_NAME = 'isaakiy-roof-offline-v7';
 const ASSETS = [
   './',
   './index.html',
