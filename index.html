@@ -5,13 +5,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="������">
-  <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#108e;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
+  <meta name="apple-mobile-web-app-title" content="&#1050;&#1088;&#1086;&#1074;&#1083;&#1080;">
+  <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#1086;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    (function() {
+      const c = document.createElement('canvas');
+      c.width = 180; c.height = 180;
+      const ctx = c.getContext('2d');
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, 180);
+      bgGrad.addColorStop(0, '#18181b');
+      bgGrad.addColorStop(1, '#27272a');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, 180, 180);
+
+      const goldGrad = ctx.createLinearGradient(40, 35, 140, 145);
+      goldGrad.addColorStop(0, '#fef08a');
+      goldGrad.addColorStop(0.5, '#eab308');
+      goldGrad.addColorStop(1, '#a16207');
+
+      ctx.fillStyle = goldGrad;
+      ctx.fillRect(88, 16, 4, 18);
+      ctx.beginPath();
+      ctx.arc(90, 38, 7, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(81, 38, 18, 12);
+
+      ctx.beginPath();
+      ctx.arc(90, 108, 56, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fillStyle = goldGrad;
+      ctx.fill();
+
+      ctx.fillStyle = '#ca8a04';
+      ctx.fillRect(30, 110, 120, 18);
+      ctx.fillStyle = '#18181b';
+      for (let x = 38; x <= 138; x += 12) {
+        ctx.fillRect(x, 113, 5, 12);
+      }
+      ctx.fillStyle = goldGrad;
+      ctx.fillRect(22, 130, 136, 8);
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(90, 88, 32, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(42, 88); ctx.lineTo(138, 88);
+      ctx.moveTo(90, 40); ctx.lineTo(90, 136);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(90, 88, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f4f4f5';
+      ctx.font = 'bold 17px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u0418\u0421\u0410\u0410\u041A\u0418\u0419', 90, 162);
+
+      const link = document.createElement('link');
+      link.rel = 'apple-touch-icon';
+      link.href = c.toDataURL('image/png');
+      document.head.appendChild(link);
+    })();
+  </script>
 
   <style>
     :root {
@@ -32,54 +101,56 @@
       overflow: hidden; display: flex; flex-direction: column;
     }
 
-    /* ������� ����-������ ��� ������ �������� */
-    .topbar-mini {
-      background: #18181b;
-      padding: 5px 10px;
+    /* 1-я верхняя сервисная полоска (редкие кнопки) */
+    .topbar-service {
+      background: #141417;
+      padding: 5px 8px;
       display: flex; justify-content: space-between; align-items: center;
       border-bottom: 1px solid #27272a;
-      font-size: 12px; z-index: 1000;
+      gap: 4px; flex-wrap: wrap;
+      z-index: 1001;
     }
-    .topbar-mini button {
-      background: #27272a; color: var(--text-muted); border: 1px solid #3f3f46;
-      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
+    .service-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    .topbar-service button {
+      background: #27272a; color: #d4d4d8; border: 1px solid #3f3f46;
+      padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
       cursor: pointer;
     }
+    .topbar-service button.active-mode {
+      background: #d97706; color: #fff; border-color: #f59e0b;
+    }
+    .topbar-service button.excel-btn {
+      background: #15803d; color: #fff; border-color: #16a34a;
+    }
 
-    /* �������� ������ ������� ������ ���������� ��� ������� */
-    .bottombar {
+    /* 2-я рабочая панель (под верхней): Выбор станции и Сводка */
+    .workbar {
       background: var(--panel-bg);
-      padding: 10px 12px;
+      padding: 7px 10px;
       display: flex; gap: 8px;
       align-items: center; justify-content: space-between;
-      border-top: 1px solid #3f3f46;
+      border-bottom: 1px solid #3f3f46;
       z-index: 1000;
     }
     .station-select-wrapper {
-      position: relative; flex: 1.4; display: flex; align-items: center;
+      position: relative; flex: 2; display: flex; align-items: center;
     }
     .station-select {
-      width: 100%; background: #3f3f46; color: #fff; border: 2px solid #52525b;
-      padding: 10px 12px; border-radius: 10px; font-size: 15px; font-weight: 700;
-      cursor: pointer; appearance: none; -webkit-appearance: none;
-      padding-left: 36px;
+      width: 100%; color: #000; border: 2px solid #fff;
+      padding: 8px 12px; border-radius: 10px; font-size: 15px; font-weight: 800;
+      cursor: pointer; outline: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
-    .station-color-dot {
-      position: absolute; left: 10px; width: 16px; height: 16px;
-      border-radius: 50%; border: 1.5px solid #fff; pointer-events: none;
-    }
-
-    .bottom-btn {
+    .work-btn {
       background: #3f3f46; color: #fff; border: 1px solid #52525b;
-      padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      padding: 9px 14px; border-radius: 10px; font-size: 14px; font-weight: 700;
       cursor: pointer; flex: 1; text-align: center; white-space: nowrap;
     }
-    .bottom-btn:active { transform: scale(0.97); }
-    .btn-success { background: #16a34a; border-color: #15803d; }
-    .btn-warn { background: #d97706; border-color: #b45309; }
+    .work-btn:active { transform: scale(0.97); }
 
+    /* 3-я строка: статус-бар */
     .status-bar {
-      background: #1f1f23; padding: 5px 12px; font-size: 11px;
+      background: #1f1f23; padding: 5px 10px; font-size: 11px;
       display: flex; justify-content: space-between; align-items: center;
       border-bottom: 1px solid #3f3f46; color: var(--text-muted);
       z-index: 999;
@@ -88,74 +159,99 @@
 
     #map { flex: 1; width: 100%; background: #e5e5e5; }
 
-    /* ������� ����� �� ����� */
+    /* Маркеры точек на плане */
     .pt-core {
       width: 20px; height: 20px;
       border-radius: 50%;
       background: #ffffff;
-      color: #111111;
-      font-weight: 800;
-      font-size: 10px;
+      color: #18181b;
+      font-weight: 600;
+      font-size: 9.5px;
       display: flex; align-items: center; justify-content: center;
       line-height: 1;
       user-select: none;
       border: 1.2px solid #27272a;
       transition: transform 0.1s;
     }
+    /* Выбранная активная станция: желтый фон + сверхжирный выделенный текст */
     .pt-core-active {
       background: #fef08a;
-      border-color: #000;
+      color: #000000;
+      font-weight: 900 !important;
+      font-size: 11px !important;
+      text-decoration: underline;
+      text-shadow: 0 0 1px rgba(0,0,0,0.35);
+      border: 1.8px solid #000;
     }
 
-    /* ��������� ���� ����� ���������� ������ */
+    /* Модальное окно ввода закреплено ВВЕРХУ экрана */
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       display: none; align-items: flex-start; justify-content: center;
-      padding-top: 8px;
+      padding-top: 6px;
       z-index: 2000;
     }
     .modal-backdrop.active { display: flex; }
     .modal-sheet {
       background: var(--panel-bg); width: 100%; max-width: 480px;
-      border-radius: 14px; padding: 12px 14px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.65);
+      border-radius: 14px; padding: 10px 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.7);
       margin: 0 8px;
     }
     .modal-header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
-    .modal-title { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .modal-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
     .close-btn {
       background: transparent; border: none; color: var(--text-muted);
-      font-size: 20px; padding: 0 6px;
+      font-size: 20px; padding: 0 6px; cursor: pointer;
     }
+
+    /* Плашка проверки перекрытия с предыдущей станцией */
+    .overlap-banner {
+      padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      margin-bottom: 6px; text-align: center; border: 1px solid transparent;
+    }
+    .overlap-ok { background: rgba(34, 197, 94, 0.18); color: #4ade80; border-color: #16a34a; }
+    .overlap-warn { background: rgba(234, 179, 8, 0.2); color: #facc15; border-color: #ca8a04; }
+    .overlap-none { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: #dc2626; }
+
     .info-grid {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
-      margin-bottom: 8px; background: #18181b; padding: 7px; border-radius: 8px;
+      margin-bottom: 6px; background: #18181b; padding: 6px; border-radius: 8px;
     }
     .info-cell { text-align: center; }
     .info-label { font-size: 10px; color: var(--text-muted); display: block; }
-    .info-val { font-size: 14px; font-weight: 700; margin-top: 2px; display: block; }
+    .info-val { font-size: 13px; font-weight: 700; margin-top: 1px; display: block; }
 
     .history-chips {
-      display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-size: 11px; max-height: 48px; overflow-y: auto;
+      display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; font-size: 11px; max-height: 44px; overflow-y: auto;
     }
-    .chip { padding: 3px 6px; border-radius: 4px; color: #000; font-weight: 600; border: 1px solid #000; }
+    .chip { padding: 2px 6px; border-radius: 4px; color: #000; font-weight: 700; border: 1px solid #000; }
 
-    .field-lbl { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
-    .input-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+    .field-lbl { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+    .input-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
     .input-row input {
       flex: 1; background: #18181b; border: 2px solid #52525b;
-      color: #fff; font-size: 20px; font-weight: 700; padding: 7px 8px;
+      color: #fff; font-size: 20px; font-weight: 700; padding: 6px 8px;
       border-radius: 8px; text-align: center; outline: none; width: 100%;
     }
     .input-row input:focus { border-color: var(--accent); }
     .sign-btn {
       background: #3f3f46; color: #fff; border: 1px solid #52525b;
-      font-size: 18px; font-weight: bold; width: 42px; height: 42px;
+      font-size: 18px; font-weight: bold; width: 42px; height: 40px;
       border-radius: 8px; display: flex; align-items: center; justify-content: center;
       cursor: pointer; flex-shrink: 0;
+    }
+
+    .btn-primary {
+      background: var(--accent); color: #fff; border: 1px solid #2563eb;
+      border-radius: 8px; font-weight: 700; cursor: pointer;
+    }
+    .btn-del {
+      background: #3f3f46; color: #fff; border: 1px solid #52525b;
+      border-radius: 8px; font-weight: 600; cursor: pointer;
     }
 
     .table-modal {
@@ -172,45 +268,49 @@
 </head>
 <body>
 
-  <!-- ������� ����-������ (������ ���������: ����, ����, �����) -->
-  <div class="topbar-mini">
-    <div style="display:flex; gap:6px;">
-      <button onclick="document.getElementById('planInput').click()">&#128506; ����</button>
+  <!-- 1. Верхняя сервисная панель (редкие функции) -->
+  <div class="topbar-service">
+    <div class="service-group">
+      <button type="button" id="btnPlan" onclick="document.getElementById('planInput').click()"></button>
       <input type="file" id="planInput" accept="application/pdf,image/*" style="display:none" onchange="handlePlanUpload(event)">
-      <button onclick="exportProjectBackup()">&#128190; ����</button>
-      <button onclick="document.getElementById('projectInput').click()">&#128194; ����.</button>
+      <button type="button" id="btnSaveProject" onclick="exportProjectBackup()"></button>
+      <button type="button" id="btnLoadProject" onclick="document.getElementById('projectInput').click()"></button>
       <input type="file" id="projectInput" accept=".json" style="display:none" onchange="importProjectBackup(event)">
+      <button type="button" id="modeBtn" onclick="toggleEditMode()"></button>
     </div>
-    <button onclick="clearCurrentCycle()" style="color:#ef4444;">&#128465; �����</button>
+    <div class="service-group">
+      <button type="button" class="excel-btn" id="btnExcel" onclick="exportToExcel()">Excel</button>
+      <button type="button" id="btnClear" onclick="clearCurrentCycle()" style="color:#f87171;"></button>
+    </div>
   </div>
 
-  <!-- ������-��� -->
+  <!-- 2. Рабочая панель прямо под верхней: Выбор станции (окрашивается) и Сводка -->
+  <div class="workbar">
+    <div class="station-select-wrapper">
+      <select class="station-select" id="stationSelect" onchange="onStationChange()"></select>
+    </div>
+    <button type="button" class="work-btn" id="btnSummary" onclick="openTableModal()"></button>
+  </div>
+
+  <!-- 3. Информационная строка состояния -->
   <div class="status-bar">
     <div id="stationStats"></div>
     <div id="stationShiftInfo"></div>
   </div>
 
-  <!-- ����� -->
+  <!-- 4. Карта с планом -->
   <div id="map"></div>
 
-  <!-- �������� ������� ������ ����� ��� ������� -->
-  <div class="bottombar">
-    <div class="station-select-wrapper">
-      <div class="station-color-dot" id="stationDot"></div>
-      <select class="station-select" id="stationSelect" onchange="onStationChange()"></select>
-    </div>
-    <button class="bottom-btn btn-warn" id="modeBtn" onclick="toggleEditMode()">���������</button>
-    <button class="bottom-btn" onclick="openTableModal()">������</button>
-    <button class="bottom-btn btn-success" onclick="exportToExcel()">Excel</button>
-  </div>
-
-  <!-- ��������� ���� ����� -->
+  <!-- Модальное окно ввода отсчета (с поддержкой синей кнопки Enter/Done на клавиатуре iPhone) -->
   <div class="modal-backdrop" id="inputModal" onclick="if(event.target===this) closeInputModal()">
-    <div class="modal-sheet">
+    <form class="modal-sheet" onsubmit="saveMeasurement(); return false;" action="javascript:void(0);">
       <div class="modal-header">
         <span class="modal-title" id="modalPtTitle"></span>
-        <button class="close-btn" onclick="closeInputModal()">&#10005;</button>
+        <button type="button" class="close-btn" onclick="closeInputModal()">&#10005;</button>
       </div>
+
+      <!-- Плашка контроля перекрытия с предыдущей не пропущенной станцией -->
+      <div class="overlap-banner" id="overlapBanner"></div>
 
       <div class="info-grid">
         <div class="info-cell">
@@ -232,28 +332,31 @@
       <div class="field-lbl" id="lblTahometer"></div>
       <div class="input-row">
         <button type="button" class="sign-btn" onclick="toggleSign('zInput')">&plusmn;</button>
-        <input type="number" inputmode="decimal" id="zInput" oninput="onLiveInput()">
+        <input type="number" step="any" inputmode="decimal" enterkeyhint="done" id="zInput" oninput="onLiveInput()">
       </div>
 
       <div class="field-lbl" id="lblTape"></div>
       <div class="input-row" style="margin-bottom: 10px;">
-        <input type="number" inputmode="decimal" id="tapeInput" oninput="onLiveInput()">
+        <input type="number" step="any" inputmode="decimal" enterkeyhint="done" id="tapeInput" oninput="onLiveInput()">
       </div>
+
+      <!-- Скрытый submit для срабатывания синей клавиши Ввод/Готово на iOS -->
+      <input type="submit" style="position:absolute; left:-9999px; width:1px; height:1px;" tabindex="-1" />
 
       <div style="display:flex; gap:8px;">
-        <button type="button" class="btn-primary" id="btnSaveMeas" style="flex:2; padding:10px; font-size:15px;" onclick="saveMeasurement()"></button>
-        <button type="button" id="btnDelMeas" style="flex:1; background:#3f3f46;" onclick="deleteMeasurement()"></button>
+        <button type="submit" class="btn-primary" id="btnSaveMeas" style="flex:2; padding:10px; font-size:15px;"></button>
+        <button type="button" class="btn-del" id="btnDelMeas" style="flex:1; padding:10px; font-size:14px;" onclick="deleteMeasurement()"></button>
       </div>
-    </div>
+    </form>
   </div>
 
-  <!-- ���� ������� ������� -->
+  <!-- Окно сводной таблицы -->
   <div class="table-modal" id="tableModal">
-    <div class="topbar-mini" style="padding:10px;">
-      <span id="lblTableTitle" style="font-weight:700; font-size:14px;"></span>
-      <div style="display:flex; gap:6px;">
-        <button class="btn-success" id="btnDownloadXlsx" onclick="exportToExcel()"></button>
-        <button id="btnCloseTable" onclick="closeTableModal()"></button>
+    <div class="topbar-service" style="padding:10px;">
+      <span id="lblTableTitle" style="font-weight:700; font-size:14px; color:#fff;"></span>
+      <div class="service-group">
+        <button type="button" class="excel-btn" id="btnDownloadXlsx" onclick="exportToExcel()"></button>
+        <button type="button" id="btnCloseTable" onclick="closeTableModal()"></button>
       </div>
     </div>
     <div class="table-container" id="summaryTableWrap"></div>
@@ -262,8 +365,13 @@
 <script>
 const T = {
   stPrefix: "\u0421\u0442",
-  modeSurvey: "\u041A\u043E\u0440\u0440\u0435\u043A\u0446\u0438\u044F",
-  modeMove: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C",
+  modeCorrection: "\u270F\uFE0F \u041A\u043E\u0440\u0440\u0435\u043A\u0446\u0438\u044F",
+  modeMoveActive: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C \u0442\u043E\u0447\u043A\u0438",
+  btnPlan: "\uD83D\uDDFA \u041F\u043B\u0430\u043D",
+  btnSaveProj: "\uD83D\uDCBE \u0421\u043E\u0445\u0440. \u0431\u0430\u0437\u0443",
+  btnLoadProj: "\uD83D\uDCC2 \u0417\u0430\u0433\u0440. \u0431\u0430\u0437\u0443",
+  btnSummary: "\uD83D\uDCCA \u0421\u0432\u043E\u0434\u043A\u0430",
+  btnClear: "\uD83D\uDDD1 \u0421\u0431\u0440\u043E\u0441",
   lblBase: "\u0411\u0430\u0437\u0430 (\u041C\u0430\u0439 26)",
   lblDiff: "\u0420\u0430\u0437\u043D. (\u0418\u0442\u043E\u0433\u2212\u0411\u0430\u0437\u0430)",
   lblDev: "\u041E\u0442\u043A\u043B. \u043F\u043E \u0441\u0442\u0430\u043D\u0446\u0438\u0438",
@@ -272,15 +380,14 @@ const T = {
   placeholderZ: "\u041E\u0442\u0441\u0447\u0435\u0442 (\u043C\u043C)",
   placeholderTape: "0",
   tapeShort: "\u0440\u0443\u043B.",
-  btnSave: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
+  btnSave: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C (\u0412\u0432\u043E\u0434)",
   btnDel: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
   tableTitle: "\u0423\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u043D\u0438\u0435 \u0438 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435 \u0441 \u041C\u0430\u0435\u043C 2026",
   btnDownloadXlsx: "\uD83D\uDCE5 .XLSX",
   btnClose: "\u2715 \u0417\u0430\u043A\u0440.",
   svgHint: "\u0412\u0425\u041E\u0414 (\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041F\u043B\u0430\u043D\u00BB \u0441\u0432\u0435\u0440\u0445\u0443)",
-  stationWord: "\u0421\u0442",
   measuredWord: "\u0421\u043D\u044F\u0442\u043E",
-  overlapsWord: "\u0421\u0432\u044F\u0437\u043E\u043A",
+  overlapsWord: "\u0421\u0432\u044F\u0437\u044C \u0441",
   avgDiffWord: "\u0421\u0440. \u0440\u0430\u0437\u043D.",
   mm: "\u043C\u043C",
   pointWord: "\u0422\u043E\u0447\u043A\u0430 \u2116",
@@ -295,7 +402,13 @@ const T = {
   readingWord: "\u041E\u0442\u0441\u0447\u0435\u0442",
   confirmClear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u0432\u0441\u0435 \u0432\u0432\u0435\u0434\u0435\u043D\u043D\u044B\u0435 \u043E\u0442\u0441\u0447\u0435\u0442\u044B?",
   loadedOk: "\u0411\u0430\u0437\u0430 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430!",
-  offlineReady: "\uD83D\uDFE2 \u041E\u0444\u043B\u0430\u0439\u043D"
+  offlineReady: "\uD83D\uDFE2 \u041E\u0444\u043B\u0430\u0439\u043D",
+  firstActiveSt: "\u041F\u0435\u0440\u0432\u0430\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u0430\u044F \u0441\u0442\u0430\u043D\u0446\u0438\u044F \u0432 \u0446\u0438\u043A\u043B\u0435",
+  ovWith: "\u041F\u0435\u0440\u0435\u043A\u0440\u044B\u0442\u0438\u0435 \u0441 ",
+  ovYes: "\u0415\u0421\u0422\u042C",
+  ovNo: "\u041D\u0415\u0422 (0 \u0442\u0447\u043A)",
+  ovPts: "\u0442\u0447\u043A",
+  thisPtMakesLink: " \u2014 \u044D\u0442\u0430 \u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0441\u0442 \u0441\u0432\u044F\u0437\u043A\u0443!"
 };
 
 const BASE_MAY_2026 = {
@@ -431,6 +544,7 @@ let state = {
   editMode: false,
   selectedPt: null,
   swReady: false,
+  stationOrder: JSON.parse(localStorage.getItem('isaak_st_order')) || [],
   coords: JSON.parse(localStorage.getItem('isaak_coords')) || generateInitialLayout(),
   measurements: JSON.parse(localStorage.getItem('isaak_meas')) || {},
   bgDataUrl: localStorage.getItem('isaak_bg_img') || null
@@ -451,9 +565,43 @@ migrateMeasurements();
 function saveState() {
   localStorage.setItem('isaak_coords', JSON.stringify(state.coords));
   localStorage.setItem('isaak_meas', JSON.stringify(state.measurements));
+  localStorage.setItem('isaak_st_order', JSON.stringify(state.stationOrder));
   if (state.bgDataUrl) {
     try { localStorage.setItem('isaak_bg_img', state.bgDataUrl); } catch(e) {}
   }
+}
+
+// Находит последнюю предыдущую активную (не пропущенную) станцию
+function getPreviousActiveStationId(curStId) {
+  curStId = Number(curStId);
+  const nonEmpty = STATIONS.map(s => s.id).filter(
+    id => state.measurements[id] && Object.keys(state.measurements[id]).length > 0
+  );
+
+  // 1. Сначала ищем по реальному порядку работы (stationOrder)
+  const validOrder = state.stationOrder.filter(id => nonEmpty.includes(Number(id)));
+  const idxInOrder = validOrder.indexOf(curStId);
+  if (idxInOrder > 0) {
+    return validOrder[idxInOrder - 1];
+  }
+  if (idxInOrder === -1 && validOrder.length > 0) {
+    return validOrder[validOrder.length - 1];
+  }
+
+  // 2. Фолбэк: ближайшая предыдущая по номеру непустая станция
+  const prevByNum = nonEmpty.filter(id => id < curStId);
+  if (prevByNum.length > 0) return prevByNum[prevByNum.length - 1];
+
+  const otherNonEmpty = nonEmpty.filter(id => id !== curStId);
+  return otherNonEmpty.length > 0 ? otherNonEmpty[otherNonEmpty.length - 1] : null;
+}
+
+// Возвращает массив общих точек между текущей станцией и предыдущей активной станцией
+function getOverlapPointsWithStation(stA, stB) {
+  if (!stA || !stB) return [];
+  const measA = state.measurements[stA] || {};
+  const measB = state.measurements[stB] || {};
+  return Object.keys(measA).map(Number).filter(ptId => measB[ptId] !== undefined);
 }
 
 let map, imageOverlay;
@@ -468,7 +616,12 @@ window.onload = () => {
     }).catch(() => {});
   }
 
-  document.getElementById('modeBtn').textContent = T.modeSurvey;
+  document.getElementById('btnPlan').textContent = T.btnPlan;
+  document.getElementById('btnSaveProject').textContent = T.btnSaveProj;
+  document.getElementById('btnLoadProject').textContent = T.btnLoadProj;
+  document.getElementById('modeBtn').textContent = T.modeCorrection;
+  document.getElementById('btnClear').textContent = T.btnClear;
+  document.getElementById('btnSummary').textContent = T.btnSummary;
   document.getElementById('lblBase').textContent = T.lblBase;
   document.getElementById('lblDiff').textContent = T.lblDiff;
   document.getElementById('lblDev').textContent = T.lblDev;
@@ -497,9 +650,13 @@ function initStationSelect() {
   const sel = document.getElementById('stationSelect');
   sel.innerHTML = '';
   STATIONS.forEach(st => {
+    const cnt = state.measurements[st.id] ? Object.keys(state.measurements[st.id]).length : 0;
     const opt = document.createElement('option');
     opt.value = st.id;
-    opt.textContent = `  ${st.name}`;
+    opt.style.backgroundColor = st.color;
+    opt.style.color = '#000';
+    opt.style.fontWeight = 'bold';
+    opt.textContent = `\u25CF ${st.name}` + (cnt > 0 ? ` (${cnt} ${T.ovPts})` : '');
     sel.appendChild(opt);
   });
   sel.value = state.activeStation;
@@ -508,9 +665,10 @@ function initStationSelect() {
 
 function updateSelectColor() {
   const st = STATIONS.find(s => s.id == state.activeStation);
-  const dot = document.getElementById('stationDot');
-  if (dot && st) {
-    dot.style.background = st.color;
+  const sel = document.getElementById('stationSelect');
+  if (sel && st) {
+    sel.style.backgroundColor = st.color;
+    sel.style.color = '#000000';
   }
 }
 
@@ -692,11 +850,11 @@ function toggleEditMode() {
   state.editMode = !state.editMode;
   const btn = document.getElementById('modeBtn');
   if (state.editMode) {
-    btn.textContent = T.modeMove;
-    btn.className = 'bottom-btn btn-warn';
+    btn.textContent = T.modeMoveActive;
+    btn.className = 'active-mode';
   } else {
-    btn.textContent = T.modeSurvey;
-    btn.className = 'bottom-btn btn-warn';
+    btn.textContent = T.modeCorrection;
+    btn.className = '';
   }
   renderMarkers();
 }
@@ -707,20 +865,19 @@ function updateStatusBar() {
   const stMeas = state.measurements[stId] || {};
   const count = Object.keys(stMeas).length;
 
-  let overlaps = 0;
-  for (const ptId of Object.keys(stMeas)) {
-    for (const s of STATIONS) {
-      if (s.id != stId && state.measurements[s.id] && state.measurements[s.id][ptId] !== undefined) {
-        overlaps++;
-        break;
-      }
-    }
+  const prevStId = getPreviousActiveStationId(stId);
+  let overlapStr = '\u2014';
+  if (prevStId) {
+    const prevStName = STATIONS.find(s => s.id == prevStId).name;
+    const ovPts = getOverlapPointsWithStation(stId, prevStId);
+    const col = ovPts.length > 0 ? '#4ade80' : '#f87171';
+    overlapStr = `${T.overlapsWord} ${prevStName}: <b style="color:${col}">${ovPts.length}</b>`;
   }
 
   const avgDiff = getStationAvgDiff(stId);
   const swBadge = state.swReady ? ` | <span style="color:#22c55e;">${T.offlineReady}</span>` : '';
   document.getElementById('stationStats').innerHTML =
-    `<b>${stName}</b> | ${T.measuredWord}: <b>${count}</b> | ${T.overlapsWord}: <b>${overlaps}</b>${swBadge}`;
+    `<b>${stName}</b> | ${T.measuredWord}: <b>${count}</b> | ${overlapStr}${swBadge}`;
   document.getElementById('stationShiftInfo').innerHTML =
     `${T.avgDiffWord}: <b>${avgDiff !== null ? (avgDiff > 0 ? '+' : '') + Math.round(avgDiff * 10)/10 + ' ' + T.mm : '\u2014'}</b>`;
 }
@@ -733,6 +890,29 @@ function openInputModal(ptId) {
   document.getElementById('modalPtTitle').innerHTML =
     `${T.pointWord}${ptId} <span style="background:${stObj.color};color:#000;padding:2px 8px;border-radius:6px;font-size:13px;border:1px solid #000;">${stObj.name}</span>`;
   document.getElementById('infoBaseH').textContent = BASE_MAY_2026[ptId] ?? '\u2014';
+
+  // Проверка перекрытия с последней предыдущей активной (не пропущенной) станцией
+  const banner = document.getElementById('overlapBanner');
+  const prevStId = getPreviousActiveStationId(stId);
+  if (!prevStId) {
+    banner.className = 'overlap-banner overlap-ok';
+    banner.textContent = T.firstActiveSt;
+  } else {
+    const prevStObj = STATIONS.find(s => s.id == prevStId);
+    const ovPts = getOverlapPointsWithStation(stId, prevStId);
+    const isThisPtInPrev = state.measurements[prevStId]?.[ptId] !== undefined;
+
+    if (ovPts.length > 0) {
+      banner.className = 'overlap-banner overlap-ok';
+      banner.textContent = `${T.ovWith}${prevStObj.name}: ${T.ovYes} (${ovPts.length} ${T.ovPts}: \u2116${ovPts.join(', ')})`;
+    } else if (isThisPtInPrev) {
+      banner.className = 'overlap-banner overlap-warn';
+      banner.textContent = `${T.ovWith}${prevStObj.name}: ${T.ovNo}${T.thisPtMakesLink}`;
+    } else {
+      banner.className = 'overlap-banner overlap-none';
+      banner.textContent = `${T.ovWith}${prevStObj.name}: ${T.ovNo}`;
+    }
+  }
 
   const chipsContainer = document.getElementById('otherStationsHistory');
   chipsContainer.innerHTML = '';
@@ -823,7 +1003,7 @@ function toggleSign(inputId) {
 
 function saveMeasurement() {
   const ptId = state.selectedPt;
-  const stId = state.activeStation;
+  const stId = Number(state.activeStation);
   const rawZ = document.getElementById('zInput').value;
   const rawTape = document.getElementById('tapeInput').value;
   if (rawZ === '' || isNaN(Number(rawZ))) return;
@@ -833,7 +1013,14 @@ function saveMeasurement() {
 
   if (!state.measurements[stId]) state.measurements[stId] = {};
   state.measurements[stId][ptId] = { z, tape };
+
+  // Фиксируем станцию в истории активных не пропущенных станций
+  if (!state.stationOrder.includes(stId)) {
+    state.stationOrder.push(stId);
+  }
+
   saveState();
+  initStationSelect();
   closeInputModal();
   renderMarkers();
   updateStatusBar();
@@ -841,11 +1028,15 @@ function saveMeasurement() {
 
 function deleteMeasurement() {
   const ptId = state.selectedPt;
-  const stId = state.activeStation;
+  const stId = Number(state.activeStation);
   if (state.measurements[stId]) {
     delete state.measurements[stId][ptId];
+    if (Object.keys(state.measurements[stId]).length === 0) {
+      state.stationOrder = state.stationOrder.filter(id => id !== stId);
+    }
     saveState();
   }
+  initStationSelect();
   closeInputModal();
   renderMarkers();
   updateStatusBar();
@@ -854,13 +1045,6 @@ function deleteMeasurement() {
 function closeInputModal() {
   document.getElementById('inputModal').classList.remove('active');
 }
-
-document.getElementById('zInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') saveMeasurement();
-});
-document.getElementById('tapeInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') saveMeasurement();
-});
 
 function computeAdjustedNetwork() {
   const activeStations = STATIONS.map(s => s.id).filter(
@@ -1056,6 +1240,7 @@ function exportProjectBackup() {
   const backup = {
     coords: state.coords,
     measurements: state.measurements,
+    stationOrder: state.stationOrder,
     bgDataUrl: state.bgDataUrl
   };
   const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
@@ -1075,6 +1260,7 @@ function importProjectBackup(e) {
     try {
       const data = JSON.parse(ev.target.result);
       if (data.coords) state.coords = data.coords;
+      if (data.stationOrder) state.stationOrder = data.stationOrder;
       if (data.measurements) {
         state.measurements = data.measurements;
         migrateMeasurements();
@@ -1084,6 +1270,7 @@ function importProjectBackup(e) {
         setMapBackground(state.bgDataUrl);
       }
       saveState();
+      initStationSelect();
       renderMarkers();
       updateStatusBar();
       alert(T.loadedOk);
@@ -1097,7 +1284,9 @@ function importProjectBackup(e) {
 function clearCurrentCycle() {
   if (confirm(T.confirmClear)) {
     state.measurements = {};
+    state.stationOrder = [];
     saveState();
+    initStationSelect();
     renderMarkers();
     updateStatusBar();
   }
