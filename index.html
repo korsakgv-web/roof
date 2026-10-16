@@ -8,13 +8,17 @@
   <meta name="apple-mobile-web-app-title" content="&#1050;&#1088;&#1086;&#1074;&#1083;&#1080;">
   <title>&#1052;&#1086;&#1085;&#1080;&#1090;&#1086;&#1088;&#1080;&#1085;&#1075; &#1050;&#1088;&#1086;&#1074;&#1083;&#1080; &#8212; &#1048;&#1089;&#1072;&#1072;&#1082;&#1080;&#1081;</title>
 
+  <!-- Статическая иконка для домашнего экрана iOS (Золотистый купол с прицелом) -->
+  <link id="appIcon" rel="apple-touch-icon" href="">
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
-    (function() {
+    // Генерация иконки при старте
+    window.addEventListener('DOMContentLoaded', () => {
       const c = document.createElement('canvas');
       c.width = 180; c.height = 180;
       const ctx = c.getContext('2d');
@@ -75,11 +79,9 @@
       ctx.textAlign = 'center';
       ctx.fillText('\u0418\u0421\u0410\u0410\u041A\u0418\u0419', 90, 162);
 
-      const link = document.createElement('link');
-      link.rel = 'apple-touch-icon';
-      link.href = c.toDataURL('image/png');
-      document.head.appendChild(link);
-    })();
+      const iconEl = document.getElementById('appIcon');
+      if (iconEl) iconEl.href = c.toDataURL('image/png');
+    });
   </script>
 
   <style>
@@ -101,7 +103,6 @@
       overflow: hidden; display: flex; flex-direction: column;
     }
 
-    /* 1-я верхняя сервисная полоска (редкие кнопки) */
     .topbar-service {
       background: #141417;
       padding: 5px 8px;
@@ -123,7 +124,6 @@
       background: #15803d; color: #fff; border-color: #16a34a;
     }
 
-    /* 2-я рабочая панель (под верхней): Выбор станции и Сводка */
     .workbar {
       background: var(--panel-bg);
       padding: 7px 10px;
@@ -135,12 +135,17 @@
     .station-select-wrapper {
       position: relative; flex: 2; display: flex; align-items: center;
     }
+    /* Классический серый фон кнопки выбора со вставкой цвета слева */
     .station-select {
-      width: 100%; color: #000; border: 2px solid #fff;
-      padding: 8px 12px; border-radius: 10px; font-size: 15px; font-weight: 800;
-      cursor: pointer; outline: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      width: 100%; background: #3f3f46; color: #fff; border: 1px solid #52525b;
+      padding: 8px 12px 8px 36px; border-radius: 10px; font-size: 15px; font-weight: 800;
+      cursor: pointer; outline: none; appearance: none; -webkit-appearance: none;
     }
+    .station-color-dot {
+      position: absolute; left: 10px; width: 16px; height: 16px;
+      border-radius: 50%; border: 1.5px solid #fff; pointer-events: none;
+    }
+
     .work-btn {
       background: #3f3f46; color: #fff; border: 1px solid #52525b;
       padding: 9px 14px; border-radius: 10px; font-size: 14px; font-weight: 700;
@@ -148,7 +153,6 @@
     }
     .work-btn:active { transform: scale(0.97); }
 
-    /* 3-я строка: статус-бар */
     .status-bar {
       background: #1f1f23; padding: 5px 10px; font-size: 11px;
       display: flex; justify-content: space-between; align-items: center;
@@ -159,7 +163,7 @@
 
     #map { flex: 1; width: 100%; background: #e5e5e5; }
 
-    /* Маркеры точек на плане */
+    /* Мягкие маркеры без рамок и подчеркиваний, только жирный шрифт */
     .pt-core {
       width: 20px; height: 20px;
       border-radius: 50%;
@@ -173,18 +177,14 @@
       border: 1.2px solid #27272a;
       transition: transform 0.1s;
     }
-    /* Выбранная активная станция: желтый фон + сверхжирный выделенный текст */
     .pt-core-active {
       background: #fef08a;
       color: #000000;
-      font-weight: 900 !important;
+      font-weight: 800 !important;
       font-size: 11px !important;
-      text-decoration: underline;
-      text-shadow: 0 0 1px rgba(0,0,0,0.35);
-      border: 1.8px solid #000;
+      border: 1.5px solid #000;
     }
 
-    /* Модальное окно ввода закреплено ВВЕРХУ экрана */
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       display: none; align-items: flex-start; justify-content: center;
@@ -208,7 +208,6 @@
       font-size: 20px; padding: 0 6px; cursor: pointer;
     }
 
-    /* Плашка проверки перекрытия с предыдущей станцией */
     .overlap-banner {
       padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 700;
       margin-bottom: 6px; text-align: center; border: 1px solid transparent;
@@ -268,7 +267,6 @@
 </head>
 <body>
 
-  <!-- 1. Верхняя сервисная панель (редкие функции) -->
   <div class="topbar-service">
     <div class="service-group">
       <button type="button" id="btnPlan" onclick="document.getElementById('planInput').click()"></button>
@@ -284,24 +282,21 @@
     </div>
   </div>
 
-  <!-- 2. Рабочая панель прямо под верхней: Выбор станции (окрашивается) и Сводка -->
   <div class="workbar">
     <div class="station-select-wrapper">
+      <div class="station-color-dot" id="stationDot"></div>
       <select class="station-select" id="stationSelect" onchange="onStationChange()"></select>
     </div>
     <button type="button" class="work-btn" id="btnSummary" onclick="openTableModal()"></button>
   </div>
 
-  <!-- 3. Информационная строка состояния -->
   <div class="status-bar">
     <div id="stationStats"></div>
     <div id="stationShiftInfo"></div>
   </div>
 
-  <!-- 4. Карта с планом -->
   <div id="map"></div>
 
-  <!-- Модальное окно ввода отсчета (с поддержкой синей кнопки Enter/Done на клавиатуре iPhone) -->
   <div class="modal-backdrop" id="inputModal" onclick="if(event.target===this) closeInputModal()">
     <form class="modal-sheet" onsubmit="saveMeasurement(); return false;" action="javascript:void(0);">
       <div class="modal-header">
@@ -309,7 +304,6 @@
         <button type="button" class="close-btn" onclick="closeInputModal()">&#10005;</button>
       </div>
 
-      <!-- Плашка контроля перекрытия с предыдущей не пропущенной станцией -->
       <div class="overlap-banner" id="overlapBanner"></div>
 
       <div class="info-grid">
@@ -340,7 +334,6 @@
         <input type="number" step="any" inputmode="decimal" enterkeyhint="done" id="tapeInput" oninput="onLiveInput()">
       </div>
 
-      <!-- Скрытый submit для срабатывания синей клавиши Ввод/Готово на iOS -->
       <input type="submit" style="position:absolute; left:-9999px; width:1px; height:1px;" tabindex="-1" />
 
       <div style="display:flex; gap:8px;">
@@ -350,7 +343,6 @@
     </form>
   </div>
 
-  <!-- Окно сводной таблицы -->
   <div class="table-modal" id="tableModal">
     <div class="topbar-service" style="padding:10px;">
       <span id="lblTableTitle" style="font-weight:700; font-size:14px; color:#fff;"></span>
@@ -366,10 +358,10 @@
 const T = {
   stPrefix: "\u0421\u0442",
   modeCorrection: "\u270F\uFE0F \u041A\u043E\u0440\u0440\u0435\u043A\u0446\u0438\u044F",
-  modeMoveActive: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C \u0442\u043E\u0447\u043A\u0438",
+  modeMoveActive: "\uD83D\uDD13 \u0414\u0432\u0438\u0433\u0430\u0435\u043C",
   btnPlan: "\uD83D\uDDFA \u041F\u043B\u0430\u043D",
-  btnSaveProj: "\uD83D\uDCBE \u0421\u043E\u0445\u0440. \u0431\u0430\u0437\u0443",
-  btnLoadProj: "\uD83D\uDCC2 \u0417\u0430\u0433\u0440. \u0431\u0430\u0437\u0443",
+  btnSaveProj: "\uD83D\uDCBE \u0411\u0430\u0437\u0430",
+  btnLoadProj: "\uD83D\uDCC2 \u0417\u0430\u0433\u0440.",
   btnSummary: "\uD83D\uDCCA \u0421\u0432\u043E\u0434\u043A\u0430",
   btnClear: "\uD83D\uDDD1 \u0421\u0431\u0440\u043E\u0441",
   lblBase: "\u0411\u0430\u0437\u0430 (\u041C\u0430\u0439 26)",
@@ -405,7 +397,7 @@ const T = {
   offlineReady: "\uD83D\uDFE2 \u041E\u0444\u043B\u0430\u0439\u043D",
   firstActiveSt: "\u041F\u0435\u0440\u0432\u0430\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u0430\u044F \u0441\u0442\u0430\u043D\u0446\u0438\u044F \u0432 \u0446\u0438\u043A\u043B\u0435",
   ovWith: "\u041F\u0435\u0440\u0435\u043A\u0440\u044B\u0442\u0438\u0435 \u0441 ",
-  ovYes: "\u0415\u0421\u0422\u042C",
+  ovYes: "\u0415\u0421\u0422\u0420",
   ovNo: "\u041D\u0415\u0422 (0 \u0442\u0447\u043A)",
   ovPts: "\u0442\u0447\u043A",
   thisPtMakesLink: " \u2014 \u044D\u0442\u0430 \u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0441\u0442 \u0441\u0432\u044F\u0437\u043A\u0443!"
@@ -571,14 +563,11 @@ function saveState() {
   }
 }
 
-// Находит последнюю предыдущую активную (не пропущенную) станцию
 function getPreviousActiveStationId(curStId) {
   curStId = Number(curStId);
   const nonEmpty = STATIONS.map(s => s.id).filter(
     id => state.measurements[id] && Object.keys(state.measurements[id]).length > 0
   );
-
-  // 1. Сначала ищем по реальному порядку работы (stationOrder)
   const validOrder = state.stationOrder.filter(id => nonEmpty.includes(Number(id)));
   const idxInOrder = validOrder.indexOf(curStId);
   if (idxInOrder > 0) {
@@ -587,16 +576,12 @@ function getPreviousActiveStationId(curStId) {
   if (idxInOrder === -1 && validOrder.length > 0) {
     return validOrder[validOrder.length - 1];
   }
-
-  // 2. Фолбэк: ближайшая предыдущая по номеру непустая станция
   const prevByNum = nonEmpty.filter(id => id < curStId);
   if (prevByNum.length > 0) return prevByNum[prevByNum.length - 1];
-
   const otherNonEmpty = nonEmpty.filter(id => id !== curStId);
   return otherNonEmpty.length > 0 ? otherNonEmpty[otherNonEmpty.length - 1] : null;
 }
 
-// Возвращает массив общих точек между текущей станцией и предыдущей активной станцией
 function getOverlapPointsWithStation(stA, stB) {
   if (!stA || !stB) return [];
   const measA = state.measurements[stA] || {};
@@ -653,9 +638,8 @@ function initStationSelect() {
     const cnt = state.measurements[st.id] ? Object.keys(state.measurements[st.id]).length : 0;
     const opt = document.createElement('option');
     opt.value = st.id;
-    opt.style.backgroundColor = st.color;
-    opt.style.color = '#000';
-    opt.style.fontWeight = 'bold';
+    opt.style.backgroundColor = '#27272a';
+    opt.style.color = '#fff';
     opt.textContent = `\u25CF ${st.name}` + (cnt > 0 ? ` (${cnt} ${T.ovPts})` : '');
     sel.appendChild(opt);
   });
@@ -665,10 +649,9 @@ function initStationSelect() {
 
 function updateSelectColor() {
   const st = STATIONS.find(s => s.id == state.activeStation);
-  const sel = document.getElementById('stationSelect');
-  if (sel && st) {
-    sel.style.backgroundColor = st.color;
-    sel.style.color = '#000000';
+  const dot = document.getElementById('stationDot');
+  if (dot && st) {
+    dot.style.background = st.color;
   }
 }
 
@@ -891,7 +874,6 @@ function openInputModal(ptId) {
     `${T.pointWord}${ptId} <span style="background:${stObj.color};color:#000;padding:2px 8px;border-radius:6px;font-size:13px;border:1px solid #000;">${stObj.name}</span>`;
   document.getElementById('infoBaseH').textContent = BASE_MAY_2026[ptId] ?? '\u2014';
 
-  // Проверка перекрытия с последней предыдущей активной (не пропущенной) станцией
   const banner = document.getElementById('overlapBanner');
   const prevStId = getPreviousActiveStationId(stId);
   if (!prevStId) {
@@ -1014,7 +996,6 @@ function saveMeasurement() {
   if (!state.measurements[stId]) state.measurements[stId] = {};
   state.measurements[stId][ptId] = { z, tape };
 
-  // Фиксируем станцию в истории активных не пропущенных станций
   if (!state.stationOrder.includes(stId)) {
     state.stationOrder.push(stId);
   }
